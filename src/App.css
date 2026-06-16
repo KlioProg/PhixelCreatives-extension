@@ -1,0 +1,250 @@
+@font-face {
+  font-family: 'Kemco'; 
+  src: url('/fonts/KemcoPixelBold.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+:root {
+  font-family: 'Courier New', Courier, monospace, system-ui, sans-serif;
+  background-color: #E9EADF; /* Classic Game Boy beige casing */
+  color: #121212;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; 
+  width: 480px; 
+  height: 600px;
+  background-color: #E9EADF; /* Your base beige color */
+
+  /* Gird Pattern Overlay */
+  background-image: 
+    linear-gradient(rgba(18, 18, 18, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(18, 18, 18, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px; /* Controls how big the grid squares are */
+  background-position: center top;
+}
+
+.phixel-container {
+  width: 480px;  
+  height: 600px; 
+  box-sizing: border-box;
+  padding: 16px; 
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.brand-header {
+  background-color: #BC1B1B; /* Signature console red */
+  border-radius: 12px;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1.5px solid #121212;
+  box-shadow: inset 0px -2px 0px rgba(0, 0, 0, 0.2);
+}
+
+.brand-logo-glow {
+  width: 12px;
+  height: 12px;
+  background-color: #E9EADF;
+  border-radius: 50%;
+  border: 1.5px solid #121212;
+}
+
+.brand-title {
+  font-family: 'Kemco', sans-serif; 
+  margin: 2px;
+  font-size: 28px; 
+  color: #F7D038; 
+  font-weight: normal; 
+  letter-spacing: 2px;
+  text-shadow: 2px 2px 0px #500; 
+}
+
+/* NAV BAR TAB DECK (Horizontal Balance) */
+.tab-navbar {
+  display: flex;
+  margin-top: 10px;
+  border-bottom: 2px solid #E2D1A6; /* Baseline tracker accent line */
+  padding-left: 4px;
+}
+
+.nav-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: bold;
+  color: #922B21;
+  padding: 6px 4px;
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.1s ease;
+}
+
+/* Active tab state overlay matching your precise design layout */
+.nav-tab.active {
+  background-color: #E6B0AA; /* Muted active pill container background tint */
+  color: #78281F;
+  border-radius: 8px 8px 0 0;
+  border-bottom: none;
+  position: relative;
+  top: 2px;
+}
+
+/* ==========================================================================
+   MAIN SCROLL VIEW WINDOW 
+   ========================================================================== */
+.main-content-window {
+  flex: 1;
+  overflow-y: auto;
+  margin-top: 10px;
+  margin-bottom: 54px; /* Essential gap safety padding so cards never slide under button */
+  padding-right: 2px;
+}
+
+/* Custom minimal internal browser scrollbar */
+.main-content-window::-webkit-scrollbar {
+  width: 6px;
+}
+.main-content-window::-webkit-scrollbar-track {
+  background: transparent;
+}
+.main-content-window::-webkit-scrollbar-thumb {
+  background-color: #C1BEB5;
+  border-radius: 10px;
+}
+
+/* ==========================================================================
+   THE 2-COLUMN PALETTE CARDS (Side-by-Side Deck)
+   ========================================================================== */
+.palette-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Clean 2-column split */
+  gap: 12px;
+}
+
+.palette-card {
+  background-color: #FFFFFF;
+  border: 1.5px solid #121212;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 128px;
+  box-shadow: 1px 2px 0px rgba(0, 0, 0, 0.15);
+}
+
+/* Color blocks flex wrapper container */
+.card-color-deck {
+  flex: 1;
+  display: flex;
+}
+
+.color-bar-slice {
+  flex: 1;
+  height: 100%;
+  transition: transform 0.1s ease;
+}
+
+.color-bar-slice:hover {
+  transform: scaleY(1.1); /* Subtle vertical pop feedback on color mouse hover */
+  cursor: pointer;
+}
+
+/* Bottom Metadata Tray (Info Row Bar) */
+.card-meta-tray {
+  height: 36px;
+  background-color: #EAECE6;
+  border-top: 1.5px solid #121212;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 6px;
+  box-sizing: border-box;
+}
+
+.meta-site-name {
+  font-size: 9px;
+  font-weight: bold;
+  color: #121212;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 70px;
+}
+
+.meta-actions-group {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.icon-action-btn {
+  font-size: 10px;
+  cursor: pointer;
+  color: #555;
+  user-select: none;
+}
+
+.icon-action-btn:hover {
+  color: #000;
+}
+
+/* ==========================================================================
+   PINNED LOWER FOOTER EXTRACT DECK BUTTON
+   ========================================================================== */
+.footer-control-deck {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
+  background-color: transparent;
+  display: flex;
+  justify-content: center;
+}
+
+.extract-btn {
+  background-color: #59E843; /* Your signature pop neon green button color */
+  color: #FFFFFF;
+  border: 1.5px solid #121212;
+  padding: 12px 0;
+  border-radius: 12px;
+  font-family: 'Kemco', sans-serif; 
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  cursor: pointer;
+  width: 75%;
+  box-shadow: 0px 3px 0px #121212;
+  text-shadow: 1px 1px 0px #1E6011;
+  transition: transform 0.05s ease, box-shadow 0.05s ease;
+}
+
+.extract-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0px 1px 0px #121212; /* Tactile springy deep button press feeling */
+}
+
+.extract-btn:disabled {
+  background-color: #C1BEB5;
+  color: #7A7871;
+  text-shadow: none;
+  cursor: not-allowed;
+  box-shadow: 0px 2px 0px #7A7871;
+}
+
+/* Empty fallback pane states */
+.empty-state-msg, .placeholder-pane {
+  grid-column: span 2;
+  text-align: center;
+  padding: 40px 10px;
+  font-size: 11px;
+  color: #6C6A61;
+  line-height: 1.5;
+}
