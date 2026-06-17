@@ -4,6 +4,7 @@
   font-weight: normal;
   font-style: normal;
 }
+
 :root {
   font-family: 'Courier New', Courier, monospace, system-ui, sans-serif;
   background-color: #E9EADF; /* Classic Game Boy beige casing */
@@ -18,7 +19,7 @@ body {
   height: 600px;
   background-color: #E9EADF; /* Your base beige color */
 
-  /* Gird Pattern Overlay */
+  /* Grid Pattern Overlay */
   background-image: 
     linear-gradient(rgba(18, 18, 18, 0.06) 1px, transparent 1px),
     linear-gradient(90deg, rgba(18, 18, 18, 0.06) 1px, transparent 1px);
@@ -35,6 +36,7 @@ body {
   flex-direction: column;
   position: relative;
 }
+
 .brand-header {
   background-color: #BC1B1B; /* Signature console red */
   border-radius: 12px;
@@ -104,7 +106,7 @@ body {
   flex: 1;
   overflow-y: auto;
   margin-top: 10px;
-  margin-bottom: 54px; /* Essential gap safety padding so cards never slide under button */
+  margin-bottom: 64px; /* Essential gap safety padding so cards never slide under button */
   padding-right: 2px;
 }
 
@@ -190,10 +192,15 @@ body {
   cursor: pointer;
   color: #555;
   user-select: none;
+  transition: color 0.1s ease;
 }
 
 .icon-action-btn:hover {
   color: #000;
+}
+
+.delete-btn:hover {
+  color: #BC1B1B; /* Turns a nice warning red when they hover over the delete button */
 }
 
 /* ==========================================================================
@@ -204,13 +211,13 @@ body {
   bottom: 12px;
   left: 12px;
   right: 12px;
-  background-color: transparent;
-  display: flex;
-  justify-content: center;
+  background-color: transparent; /* Makes the grid show behind the button */
+  display: flex;                 /* Centers the button */
+  justify-content: center;       /* Centers the button */
 }
 
 .extract-btn {
-  background-color: #59E843; /* Your signature pop neon green button color */
+  background-color: #59E843; /* Signature pop neon green button color */
   color: #FFFFFF;
   border: 1.5px solid #121212;
   padding: 12px 0;
