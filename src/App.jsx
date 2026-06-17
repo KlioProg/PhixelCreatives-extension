@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import './App.css'
 
 function App() {
@@ -6,20 +6,46 @@ function App() {
   const [palettes, setPalettes] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.local.get(['savedPalettes'], (result) => {
+        if(result.savedPalettes) {
+          setPalettes(result.savedPalettes);
+        }
+      });
+    }
+  }, []);
+
   const processColorResponse = (response, tabTitle) => {
     if (response && response.colors && response.colors.length > 0) {
       const cleanTitle = tabTitle.replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Untitled'; 
       const newPalette = {
         id: Date.now(),
         title: cleanTitle,
-        colors: response.colors
+        colors: response.colors.slice(0, 5) // Limit to top 5colors
       };
-      setPalettes(prev => [...prev, newPalette]);
+
+      setPalettes(prev => {
+        const newDeck = [newPalette, ...prev];
+        chrome.storage.local.set({ savedPalettes: newDeck });
+        return newDeck;
+      })
+   
       setActiveTab('colors');
     } else {
       alert("No colors found on the current page.");
     }
     setLoading(false);
+  }
+
+  const deletePalette = (id) => {
+    if(!window.confirm("Are you sure you want to delete this palette?")) return;
+
+    setPalettes(prev => {
+      const updatedDeck = prev.filter(palette => palette.id !== id);
+      chrome.storage.local.set({ savedPalettes: updatedDeck });
+      return updatedDeck;
+  });
   }
 
   const handleExtractColors = async () => {
@@ -115,7 +141,13 @@ function App() {
                     <span className="meta-site-name">{palette.title}</span>
                     <div className="meta-actions-group">
                       <span className="icon-action-btn" title="View Detail">👁</span>
-                      <span className="icon-action-btn" title="Options">•••</span>
+                      <span 
+                        className="icon-action-btn delete-btn" 
+                        title="Delete Palette" 
+                        onClick={() => deletePalette(palette.id)}
+                      >
+                        •••
+                      </span>
                     </div>
                   </div>
 
