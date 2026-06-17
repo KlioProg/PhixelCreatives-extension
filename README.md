@@ -1,16 +1,46 @@
-# React + Vite
+# 👾 Phixel Creatives Engine
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Phixel is a compact, retro-inspired Chrome extension built for designers, developers, and digital creatives. Encased in a classic handheld-console UI (featuring authentic Kemco pixel typography), Phixel is designed to be a frictionless, highly visual utility tool for web creatives.
 
-Currently, two official plugins are available:
+Stop squinting at complex developer tools to find that perfect hex code. Phixel allows you to instantly scan any active webpage, extract its dominant color palette, and save it permanently to your local browser storage.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 🛠️ The Tech Stack
+* **React (Vite):** Core framework for state management and UI rendering.
+* **Manifest V3:** The latest Chrome Extension standard for secure, optimized browser performance.
+* **Pure CSS:** Custom zero-dependency styling utilizing Flexbox, CSS Grid, and pure CSS patterns to achieve a tactile hardware aesthetic.
 
-## React Compiler
+## 🚀 Development Roadmap & Issue Tracker
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Phixel is currently in active development. I am building this project step-by-step to bridge the gap between creative UI/UX design and foundational software engineering. 
 
-## Expanding the ESLint configuration
+### Phase 1: The Color Engine (Live)
+* **Instant Extraction:** Grab the top 5 dominant colors from any active webpage.
+* **Persistent Memory:** Palettes are saved to Chrome's `local.storage`. Close the extension, refresh the page, or restart your browser—your colors are preserved.
+* **Pro Dashboard Layout:** Colors are displayed as clickable ribbons on a custom drafting-grid background. 
+* **One-Click Copy:** Click any color ribbon to seamlessly copy the hex code to your system clipboard.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### Phase 1.5: Advanced Interactions (In Progress)
+* 🚧 **Pro Detail Modal:** A full-screen overlay providing deep-dive mathematical conversions (HEX, HSB, HSL, RGB, CMYK, LAB) for precise print and digital use.
+* 🚧 **Accordion UI Expanders:** Smooth, flex-based CSS animations for color slices on hover.
+
+### Phase 2: Vector Module (Planned)
+* A dedicated tab to instantly scan, preview, and download SVG vectors and icons currently rendered on the active webpage. 
+
+### Phase 3: Font Scanner (Planned)
+* A typography engine designed to identify and list the exact font families, weights, and styling properties used on the current site.
+
+## 💾 Installation (Developer Preview)
+
+Because Phixel is in active development, it is not yet published on the Chrome Web Store. You can install it locally to test the latest builds:
+
+1.  **Clone the Repository:**
+    ```bash
+    git clone [https://github.com/KlioProg/PhixelCreatives-extension.git](https://github.com/KlioProg/PhixelCreatives-extension.git)
+    cd PhixelCreatives-extension
+    npm install
+    npm run build
+    ```
+2.  **Open Chrome Extensions:**
+    Navigate to `chrome://extensions/` in your browser and ensure **"Developer mode"** is toggled ON in the top right corner.
+3.  **Load the Extension:**
+    Click **"Load unpacked"** in the top left corner, and select the `dist` folder that was just generated inside your project directory.
