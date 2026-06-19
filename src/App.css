@@ -6,7 +6,7 @@
 }
 
 :root {
-  font-family: 'Courier New', Courier, monospace, system-ui, sans-serif;
+  font-family: var(--sans, 'Courier New', Courier, monospace);
   background-color: #E9EADF; /* Classic Game Boy beige casing */
   color: #121212;
 }
@@ -254,4 +254,81 @@ body {
   font-size: 11px;
   color: #6C6A61;
   line-height: 1.5;
+}
+
+.toast-banner {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  bottom: 92px;
+  padding: 12px 16px;
+  background: rgba(19, 35, 58, 0.95);
+  color: #F8FAFC;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
+  font-size: 12px;
+  letter-spacing: 0.2px;
+  z-index: 1200;
+  text-align: center;
+}
+
+.confirm-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1300;
+}
+
+.confirm-card {
+  width: 320px;
+  background: #FFFFFF;
+  border-radius: 18px;
+  padding: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.confirm-title {
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 10px;
+  color: #0F172A;
+}
+
+.confirm-copy {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-btn {
+  flex: 1;
+  border: none;
+  border-radius: 999px;
+  padding: 12px 0;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.confirm-btn.cancel {
+  background: #F8FAFC;
+  color: #475569;
+  border: 1px solid #CBD5E1;
+}
+
+.confirm-btn.delete {
+  background: #DC2626;
+  color: #FFFFFF;
 }

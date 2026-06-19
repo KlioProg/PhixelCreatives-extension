@@ -1,3 +1,17 @@
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-VariableFont_opsz,wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/Inter-Italic-VariableFont_opsz,wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+}
+
 :root {
   --text: #6b6375;
   --text-h: #08060d;
@@ -11,8 +25,8 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   font: 18px/145% var(--sans);
@@ -81,7 +95,7 @@ h1 {
   margin: 32px 0;
 }
 h2 {
-  font-size: 24px;
+  font-size: 26px;
   line-height: 118%;
   letter-spacing: -0.24px;
   margin: 0 0 8px;
@@ -130,13 +144,13 @@ code {
 /* --- EYE MODAL SHELL (STRICT 195x240) --- */
 .eye-modal {
   width: 330px;
-  height: 390px; /* 🚨 STRICT HEIGHT LOCK 🚨 */
-  box-sizing: border-box; /* Forces padding to stay inside the 195x240 box */
+  height: 390px; 
+  box-sizing: border-box;
   background-color: #EDEDE9;
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  overflow: hidden; /* Matches Figma's 'Clip content' */
+  overflow: hidden; 
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
   color: #08060d;
 }
@@ -146,12 +160,12 @@ code {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 12px; /* Tighter padding to save space */
+  padding: 8px 12px; 
   flex-shrink: 0;
 }
 
 .modal-topbar-title {
-  font-size: 11px;
+  font-size: 24px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -217,7 +231,6 @@ code {
   line-height: 1;
 }
 
-<<<<<<< HEAD
 .modal-bottom-ribbon {
   display: flex;
   flex-direction: row;
@@ -232,9 +245,6 @@ code {
   flex-shrink: 0;
 }
 
-/* Ensure the slices just fill the space */
-=======
-
 .modal-bottom-ribbon {
   display: flex;
   flex-direction: row;
@@ -244,15 +254,11 @@ code {
   overflow: hidden;
   flex-shrink: 0; 
 }
-
->>>>>>> 9db8268283fe5a34b1c65b028e6e307accab0812
 .ribbon-slice {
   flex: 1;
   cursor: pointer;
   opacity: 0.85;
-<<<<<<< HEAD
   transition: all 0.2s ease;
-  /* No need to round these individually anymore! */
 }
 
 .ribbon-slice:first-child {
@@ -263,16 +269,14 @@ code {
 .ribbon-slice:last-child {
   border-top-right-radius: 6px;
   border-bottom-right-radius: 6px;
-=======
+
   transition: opacity 0.2s ease;
->>>>>>> 9db8268283fe5a34b1c65b028e6e307accab0812
 }
 
 .ribbon-slice.active {
   opacity: 1;
-<<<<<<< HEAD
   transform: scale(1.1);
-  border-radius: 4px; /* Keeps the active one rounded even when popped */
+  border-radius: 4px; 
   z-index: 10;
 }
 
@@ -304,6 +308,105 @@ code {
   align-items: center;
   height: 100%;
   text-shadow: 0 0 2px rgba(255, 255, 255, 0.3);
-=======
->>>>>>> 9db8268283fe5a34b1c65b028e6e307accab0812
+}
+
+/* --- Options Dropdown Menu --- */
+
+.options-menu-container {
+  position: relative;
+}
+
+.options-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background-color: #EDEDE9;
+  border: 12px solid #EDEDE9;
+  border-radius: 10px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+  z-index: 1000;
+  min-width: 220px;
+}
+
+.options-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  right: 18px;
+  width: 0;
+  height: 0;
+  border-left: 10px solid transparent;
+  border-right: 10px solid transparent;
+  border-bottom: 10px solid #EDEDE9;
+}
+
+.dropdown-item {
+  padding: 12px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #08060d;
+  cursor: pointer;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.dropdown-item:hover {
+  background-color: #E2DCD1;
+  transform: translateX(1px);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.dropdown-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.dropdown-icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: transparent;
+  margin: 6px 0;
+  position: relative;
+}
+
+.dropdown-divider::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,0.13), transparent);
+}
+
+.delete-text {
+  color: #B91C1C;
+  font-weight: 700;
+  justify-content: space-between;
+}
+
+.delete-text .action-badge {
+  background-color: #FEE2E2;
+  color: #991B1B;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.delete-text:hover {
+  background-color: rgba(241, 245, 249, 0.8);
 }
