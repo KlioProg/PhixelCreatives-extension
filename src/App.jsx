@@ -7,8 +7,81 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [paletteDetail, setPaletteDetail] = useState(null);
   const [colorIndex, setColorIndex] = useState(0);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [pendingDeleteId, setPendingDeleteId] = useState(null);
+  const [toastMessage, setToastMessage] = useState('');
+  const [toastVisible, setToastVisible] = useState(false);
+
+  const handleRename = () => {
+    const newName = prompt("Enter a new name for this palette:", paletteDetail.title);
+    if(newName && newName.trim() !== "") {
+      setPalettes(prev => {
+        const updatedDeck = prev.map(palette => 
+          palette.id === paletteDetail.id ? { ...palette, title: newName.trim() } : palette
+        );
+        chrome.storage.local.set({ savedPalettes: updatedDeck });
+        return updatedDeck;
+      });
+      setPaletteDetail(prev => ({ ...prev, title: newName.trim() }));
+    }
+    setIsMenuOpen(false);
+  }
+
+  const showToast = (message) => {
+    setToastMessage(message);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 2200);
+  };
+
+  const handleDuplicate = () => {
+    const newPalette = {
+      ...paletteDetail,
+      id: Date.now(),
+      title: `${paletteDetail.title} (Copy)`
+    };
+    setPalettes(prev => {
+      const updatedDeck = [newPalette, ...prev];
+      chrome.storage.local.set({ savedPalettes: updatedDeck });
+      return updatedDeck;
+    });
+    setIsMenuOpen(false);
+    showToast(`Palette duplicated as "${newPalette.title}"`);
+  }
+
+  const handleCopyAllHex = () => {
+    const allHex = paletteDetail.colors.map(color => getTrueColorMath(color).hex).join(', ');
+    navigator.clipboard.writeText(allHex);
+    showToast('Copied all HEX values');
+    setIsMenuOpen(false);
+  }
+
+  const handleMenuDelete = () => {
+    if (paletteDetail) {
+      setPendingDeleteId(paletteDetail.id);
+      setIsMenuOpen(false);
+      setConfirmDelete(true);
+    }
+  }
+
+  const requestDeletePalette = (id) => {
+    setPendingDeleteId(id);
+    setConfirmDelete(true);
+    setIsMenuOpen(false);
+  };
+
+  const cancelDelete = () => {
+    setPendingDeleteId(null);
+    setConfirmDelete(false);
+  };
+
+  const confirmDeletePalette = () => {
+    if (pendingDeleteId == null) return;
+    deletePalette(pendingDeleteId);
+    setPendingDeleteId(null);
+    setConfirmDelete(false);
+  };
   
-  // Build the active color data for display in the detail modal
   let activeData = null;
   if (paletteDetail) {
     const safeColorIndex = Math.min(colorIndex, paletteDetail.colors.length - 1);
@@ -41,20 +114,23 @@ function App() {
       })
    
       setActiveTab('colors');
+      showToast('Palette saved');
     } else {
-      alert("No colors found on the current page.");
+      showToast('No colors found on the current page');
     }
     setLoading(false);
   }
 
   const deletePalette = (id) => {
-    if(!window.confirm("Are you sure you want to delete this palette?")) return;
-
     setPalettes(prev => {
       const updatedDeck = prev.filter(palette => palette.id !== id);
       chrome.storage.local.set({ savedPalettes: updatedDeck });
       return updatedDeck;
-  });
+    });
+    if (paletteDetail?.id === id) {
+      setPaletteDetail(null);
+    }
+    showToast('Palette deleted');
   }
 
   const handleExtractColors = async () => {
@@ -63,13 +139,13 @@ function App() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
     if(!tab) {
-      alert("No active tab found. Please open a webpage and try again.");
+      showToast("No active tab found. Please open a webpage and try again.");
       setLoading(false);
       return;
     }
 
     if (isRestrictedUrl(tab.url)) {
-      alert("This extension cannot access the current page due to browser security restrictions. Please navigate to a different webpage and try again.");
+      showToast("This extension cannot access the current page due to browser security restrictions. Please navigate to a different webpage and try again.");
       setLoading(false);
       return;
     }
@@ -77,7 +153,7 @@ function App() {
     chrome.tabs.sendMessage(tab.id, { action: "extractColors" }, (response) => {
       if (chrome.runtime.lastError) {
         console.error("Error", chrome.runtime.lastError.message);
-        alert("Failed to communicate with content script.");
+        showToast("Failed to communicate with content script.");
         setLoading(false);
         return;
       }
@@ -139,7 +215,7 @@ function App() {
                           title={`Click to copy: ${color}`}
                           onClick={() => {
                             navigator.clipboard.writeText(color);
-                            alert(`Copied ${color} to clipboard!`);
+                            showToast(`Copied ${color}`);
                           }}
                         />
                       ))}
@@ -158,7 +234,7 @@ function App() {
                         <span 
                           className="icon-action-btn delete-btn" 
                           title="Delete Palette" 
-                          onClick={() => deletePalette(palette.id)}
+                          onClick={() => requestDeletePalette(palette.id)}
                         >
                           •••
                         </span>
@@ -175,24 +251,71 @@ function App() {
                 <div className="eye-modal" onClick={(event) => event.stopPropagation()}>
                   <div className="modal-topbar">
                     <span className="modal-topbar-title">{paletteDetail.title}</span>
-<<<<<<< HEAD
                     <div className="header-actions">
+                    <div className="options-menu-container">
                       <span 
                         className="icon-btn options-btn" 
-                        onClick={() => {
-                          if(window.confirm("Delete this palette?")) {
-                            deletePalette(paletteDetail.id);
-                            setPaletteDetail(null);
-                          }
-                        }}
+                        onClick={() => setIsMenuOpen(!isMenuOpen)}
                       >
                         •••
                       </span>
-                      <span className="icon-btn close-btn" onClick={() => setPaletteDetail(null)}>✕</span>
+
+                      {isMenuOpen && (
+                        <div className="options-dropdown">
+                          <div className="dropdown-item" onClick={handleRename}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M4 20h4.586l9.707-9.707-4.586-4.586L4 15.414V20zm16.707-12.293a1 1 0 0 0 0-1.414l-2-2a1 1 0 0 0-1.414 0l-1.793 1.793 4.586 4.586L20.707 7.707z" fill="currentColor"/>
+                              </svg>
+                            </span>
+                            Rename
+                          </div>
+                          <div className="dropdown-item" onClick={handleDuplicate}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M16 2H6a2 2 0 0 0-2 2v12h2V4h10V2zm4 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-2 14H8V8h10v12z" fill="currentColor"/>
+                              </svg>
+                            </span>
+                            Duplicate
+                          </div>
+                          <div className="dropdown-item" onClick={handleCopyAllHex}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7zm-2 2v12H8V9h9z" fill="currentColor"/>
+                              </svg>
+                            </span>
+                            Copy All Hex
+                          </div>
+                          <div className="dropdown-item" onClick={() => { showToast('Edit colors coming soon!'); setIsMenuOpen(false); }}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M3 17.25V21h3.75l11.024-11.024-3.75-3.75L3 17.25zm17.71-10.04a1.004 1.004 0 0 0 0-1.42l-2.5-2.5a1.004 1.004 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/>
+                              </svg>
+                            </span>
+                            Edit Palette
+                          </div>
+                          <div className="dropdown-divider"></div>
+                          <div className="dropdown-item delete-text" onClick={() => requestDeletePalette(paletteDetail.id)}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M6 7h12v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-4h6v2H9V3zm9 4H6v14h12V7z" fill="currentColor"/>
+                              </svg>
+                            </span>
+                            <span>Delete</span>
+                            <span className="action-badge">Danger</span>
+                          </div>
+                        </div>
+                      )} 
+                    </div>                      
+                      <span 
+                      className="icon-btn close-btn" 
+                      onClick={() => {
+                        setPaletteDetail(null);
+                        setIsMenuOpen(false);
+                      }}>
+                        ✕
+                      </span>
                     </div>
-=======
-                    <span className="icon-btn close-btn" onClick={() => setPaletteDetail(null)}>✕</span>
->>>>>>> 9db8268283fe5a34b1c65b028e6e307accab0812
                   </div>
                   <div 
                       className="modal-body"
@@ -205,32 +328,32 @@ function App() {
                     >
                     {activeData ? (
                         <div className="modal-data-list">
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.hex); alert(`Copied HEX: ${activeData.hex}`); }}>
+                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.hex); showToast(`Copied HEX: ${activeData.hex}`); }}>
                             <span className="data-label">HEX</span>
                             <span className="data-value">{activeData.hex}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.hsb); alert(`Copied HSB: ${activeData.hsb}`); }}>
+                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.hsb); showToast(`Copied HSB: ${activeData.hsb}`); }}>
                             <span className="data-label">HSB</span>
                             <span className="data-value">{activeData.hsb}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.hsl); alert(`Copied HSL: ${activeData.hsl}`); }}>
+                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.hsl); showToast(`Copied HSL: ${activeData.hsl}`); }}>
                             <span className="data-label">HSL</span>
                             <span className="data-value">{activeData.hsl}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.rgb); alert(`Copied RGB: ${activeData.rgb}`); }}>
+                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.rgb); showToast(`Copied RGB: ${activeData.rgb}`); }}>
                             <span className="data-label">RGB</span>
                             <span className="data-value">{activeData.rgb}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.cmyk); alert(`Copied CMYK: ${activeData.cmyk}`); }}>
+                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.cmyk); showToast(`Copied CMYK: ${activeData.cmyk}`); }}>
                             <span className="data-label">CMYK</span>
                             <span className="data-value">{activeData.cmyk}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.oklab); alert(`Copied OKLAB: ${activeData.oklab}`); }}>
+                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.oklab); showToast(`Copied OKLAB: ${activeData.oklab}`); }}>
                             <span className="data-label">OKLAB</span>
                             <span className="data-value">{activeData.oklab}</span>
                           </div>
@@ -240,7 +363,6 @@ function App() {
                       )}
                     </div>
                   <div className="modal-bottom-ribbon">
-<<<<<<< HEAD
                     {paletteDetail.colors.map((color, index) => {
                       const canvas = document.createElement("canvas");
                       canvas.width = 1; canvas.height = 1;
@@ -269,16 +391,6 @@ function App() {
                         </div>
                       );
                     })}
-=======
-                    {paletteDetail.colors.map((color, index) => (
-                      <div
-                        key={index}
-                        className={`ribbon-slice ${index === colorIndex ? 'active' : ''}`}
-                        style={{ backgroundColor: color }}
-                        onClick={() => setColorIndex(index)}
-                      />
-                    ))}
->>>>>>> 9db8268283fe5a34b1c65b028e6e307accab0812
                   </div>
                 </div>
               </div>
@@ -306,6 +418,25 @@ function App() {
           {loading ? "SCANNING SITE..." : "GET COLORS!"}
         </button>
       </footer>
+
+      {toastVisible && (
+        <div className="toast-banner" role="status">
+          {toastMessage}
+        </div>
+      )}
+
+      {confirmDelete && (
+        <div className="confirm-backdrop" onClick={cancelDelete}>
+          <div className="confirm-card" onClick={(event) => event.stopPropagation()}>
+            <div className="confirm-title">Delete palette?</div>
+            <p className="confirm-copy">This action will remove the palette from your saved list. You can’t undo it.</p>
+            <div className="confirm-actions">
+              <button className="confirm-btn cancel" onClick={cancelDelete}>Cancel</button>
+              <button className="confirm-btn delete" onClick={confirmDeletePalette}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
