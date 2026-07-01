@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import './App.css'
+import { PencilSimple, Copy, Hash, PaintBrush, Trash, Eye, DotsThree, X} from "@phosphor-icons/react";
+
 
 function App() {
   const [activeTab, setActiveTab] = useState('colors');
@@ -12,7 +14,7 @@ function App() {
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
-
+  const [openMenuID, setOpenMenuID] = useState(null);
   const handleRename = () => {
     const newName = prompt("Enter a new name for this palette:", paletteDetail.title);
     if(newName && newName.trim() !== "") {
@@ -229,15 +231,50 @@ function App() {
                           className="icon-action-btn" 
                           title="View Detail" 
                           onClick={() => setPaletteDetail(palette)}>
-                            👁
+                            <Eye size={18} weight="regular" />
                         </span>
                         <span 
-                          className="icon-action-btn delete-btn" 
-                          title="Delete Palette" 
-                          onClick={() => requestDeletePalette(palette.id)}
-                        >
-                          •••
+                          className="icon-action-btn options-btn" 
+                          title="Options" 
+                          onClick={() => setOpenMenuID(openMenuID === palette.id ? null : palette.id)}                        >
+                          <DotsThree size={22} weight="regular" />
                         </span>
+
+                        {openMenuID === palette.id && (
+                           <div className="options-dropdown">
+                          <div className="dropdown-item" onClick={handleRename}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <PencilSimple size={18} weight="bold" />
+                            </span>
+                            Rename
+                          </div>
+                          <div className="dropdown-item" onClick={handleDuplicate}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <Copy size={18} weight="bold" />
+                            </span>
+                            Duplicate
+                          </div>
+                          <div className="dropdown-item" onClick={handleCopyAllHex}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <Hash size={18} weight="bold" />
+                            </span>
+                            Copy All Hex
+                          </div>
+                          <div className="dropdown-item" onClick={() => { showToast('Edit colors coming soon!'); setIsMenuOpen(false); }}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <PaintBrush size={18} weight="bold" />
+                            </span>
+                            Edit Palette
+                          </div>
+                          <div className="dropdown-divider"></div>
+                          <div className="dropdown-item delete-text" onClick={() => requestDeletePalette(paletteDetail.id)}>
+                            <span className="dropdown-icon" aria-hidden="true">
+                              <Trash size={18} weight="bold" />
+                            </span>
+                            <span>Delete</span>
+                          </div>
+                        </div>
+                        )}
                       </div>
                     </div>
 
@@ -254,66 +291,55 @@ function App() {
                     <div className="header-actions">
                     <div className="options-menu-container">
                       <span 
-                        className="icon-btn options-btn" 
+                        className="eye-icon-btn eye-options-btn" 
                         onClick={() => setIsMenuOpen(!isMenuOpen)}
                       >
-                        •••
+                        <DotsThree size={22} weight="bold" />
                       </span>
 
                       {isMenuOpen && (
                         <div className="options-dropdown">
-                          <div className="dropdown-item" onClick={handleRename}>
+                            <div className="dropdown-item" onClick={() => handleRename(paletteDetail)}>
                             <span className="dropdown-icon" aria-hidden="true">
-                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M4 20h4.586l9.707-9.707-4.586-4.586L4 15.414V20zm16.707-12.293a1 1 0 0 0 0-1.414l-2-2a1 1 0 0 0-1.414 0l-1.793 1.793 4.586 4.586L20.707 7.707z" fill="currentColor"/>
-                              </svg>
+                              <PencilSimple size={18} weight="bold" />
                             </span>
                             Rename
                           </div>
-                          <div className="dropdown-item" onClick={handleDuplicate}>
+                            <div className="dropdown-item" onClick={() => handleDuplicate(paletteDetail)}>
                             <span className="dropdown-icon" aria-hidden="true">
-                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M16 2H6a2 2 0 0 0-2 2v12h2V4h10V2zm4 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zm-2 14H8V8h10v12z" fill="currentColor"/>
-                              </svg>
+                              <Copy size={18} weight="bold" />
                             </span>
                             Duplicate
-                          </div>
-                          <div className="dropdown-item" onClick={handleCopyAllHex}>
+                          </div>                      
+                          <div className="dropdown-item" onClick={() => handleCopyAllHex(paletteDetail)}>
                             <span className="dropdown-icon" aria-hidden="true">
-                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M16 1H4a2 2 0 0 0-2 2v14h2V3h12V1zm3 4H8a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V7zm-2 2v12H8V9h9z" fill="currentColor"/>
-                              </svg>
+                              <Hash size={18} weight="bold" />
                             </span>
                             Copy All Hex
-                          </div>
+                          </div>   
                           <div className="dropdown-item" onClick={() => { showToast('Edit colors coming soon!'); setIsMenuOpen(false); }}>
                             <span className="dropdown-icon" aria-hidden="true">
-                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M3 17.25V21h3.75l11.024-11.024-3.75-3.75L3 17.25zm17.71-10.04a1.004 1.004 0 0 0 0-1.42l-2.5-2.5a1.004 1.004 0 0 0-1.42 0l-1.83 1.83 3.75 3.75 1.83-1.83z" fill="currentColor"/>
-                              </svg>
+                              <PaintBrush size={18} weight="bold" />
                             </span>
                             Edit Palette
-                          </div>
-                          <div className="dropdown-divider"></div>
+                          </div>                         
+                          <div className="dropdown-divider"></div>                        
                           <div className="dropdown-item delete-text" onClick={() => requestDeletePalette(paletteDetail.id)}>
                             <span className="dropdown-icon" aria-hidden="true">
-                              <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                                <path d="M6 7h12v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V7zm3-4h6v2H9V3zm9 4H6v14h12V7z" fill="currentColor"/>
-                              </svg>
+                              <Trash size={18} weight="bold" />
                             </span>
                             <span>Delete</span>
-                            <span className="action-badge">Danger</span>
-                          </div>
+                          </div>                 
                         </div>
-                      )} 
+                      )}
                     </div>                      
                       <span 
-                      className="icon-btn close-btn" 
+                      className="eye-icon-btn eye-close-btn" 
                       onClick={() => {
                         setPaletteDetail(null);
                         setIsMenuOpen(false);
                       }}>
-                        ✕
+                        <X size={20} weight="bold" />
                       </span>
                     </div>
                   </div>
