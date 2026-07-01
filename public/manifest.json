@@ -3,8 +3,18 @@
   "name": "Phixel",
   "version": "1.0.0",
   "description": "A powerful color extraction and palette companion designed for creatives.",
+  "icons": {
+    "16": "icon-logo.png",
+    "48": "icon-logo.png",
+    "128": "icon-logo.png"
+  },
   "action": {
-    "default_popup": "index.html"
+    "default_popup": "index.html",
+    "default_icon": {
+      "16": "icon-logo.png",
+      "48": "icon-logo.png",
+      "128": "icon-logo.png"
+    }
   },
   "permissions": [
     "activeTab",
