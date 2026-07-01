@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import { PencilSimple, Copy, Hash, PaintBrush, Trash, Eye, DotsThree, X} from "@phosphor-icons/react";
 
@@ -15,48 +15,99 @@ function App() {
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
   const [openMenuID, setOpenMenuID] = useState(null);
-  const handleRename = () => {
-    const newName = prompt("Enter a new name for this palette:", paletteDetail.title);
-    if(newName && newName.trim() !== "") {
-      setPalettes(prev => {
-        const updatedDeck = prev.map(palette => 
-          palette.id === paletteDetail.id ? { ...palette, title: newName.trim() } : palette
-        );
-        chrome.storage.local.set({ savedPalettes: updatedDeck });
-        return updatedDeck;
-      });
-      setPaletteDetail(prev => ({ ...prev, title: newName.trim() }));
-    }
-    setIsMenuOpen(false);
-  }
+  const [renameModalOpen, setRenameModalOpen] = useState(false);
+  const [renameTarget, setRenameTarget] = useState(null);
+  const [renameDraft, setRenameDraft] = useState('');
+  const toastTimerRef = useRef(null);
 
   const showToast = (message) => {
     setToastMessage(message);
     setToastVisible(true);
-    setTimeout(() => setToastVisible(false), 2200);
+
+    if (toastTimerRef.current) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+
+    toastTimerRef.current = window.setTimeout(() => {
+      setToastVisible(false);
+      setToastMessage('');
+    }, 1800);
   };
 
-  const handleDuplicate = () => {
-    const newPalette = {
-      ...paletteDetail,
-      id: Date.now(),
-      title: `${paletteDetail.title} (Copy)`
-    };
+  const openRenameModal = (targetPalette) => {
+    setRenameTarget(targetPalette);
+    setRenameDraft(targetPalette.title || '');
+    setRenameModalOpen(true);
+    setOpenMenuID(null);
+    setIsMenuOpen(false);
+  };
+
+  const cancelRenameModal = () => {
+    setRenameModalOpen(false);
+    setRenameTarget(null);
+    setRenameDraft('');
+  };
+
+  const confirmRename = () => {
+    if (!renameTarget) return;
+
+    const nextName = renameDraft.trim();
+    if (!nextName) {
+      showToast('Please enter a palette name');
+      return;
+    }
+
     setPalettes(prev => {
-      const updatedDeck = [newPalette, ...prev];
-      chrome.storage.local.set({ savedPalettes: updatedDeck });
+      const updatedDeck = prev.map(palette =>
+        palette.id === renameTarget.id ? { ...palette, title: nextName } : palette
+      );
+
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.local.set({ savedPalettes: updatedDeck });
+      }
       return updatedDeck;
     });
-    setIsMenuOpen(false);
-    showToast(`Palette duplicated as "${newPalette.title}"`);
+
+    if (paletteDetail && paletteDetail.id === renameTarget.id) {
+      setPaletteDetail(prev => ({ ...prev, title: nextName }));
+    }
+
+    showToast('Palette renamed');
+    cancelRenameModal();
+  };
+
+  const handleRename = (targetPalette) => {
+    openRenameModal(targetPalette);
   }
 
-  const handleCopyAllHex = () => {
-    const allHex = paletteDetail.colors.map(color => getTrueColorMath(color).hex).join(', ');
-    navigator.clipboard.writeText(allHex);
-    showToast('Copied all HEX values');
-    setIsMenuOpen(false);
+  const handleDuplicate = (targetPalette) => {
+  const newPalette = {
+    ...targetPalette,
+    id: Date.now(),
+    title: `${targetPalette.title} (Copy)`
+  };
+
+    setPalettes(prev => {
+      const updatedDeck = [newPalette, ...prev];
+      
+      // Safety check so it doesn't crash on localhost
+      if (typeof chrome !== "undefined" && chrome.storage) {
+        chrome.storage.local.set({ savedPalettes: updatedDeck });
+      }
+      return updatedDeck;
+    });
+    
+    setOpenMenuID(null); 
+    showToast('Palette duplicated');
   }
+
+  const handleCopyAllHex = (targetPalette) => {
+  const allHex = targetPalette.colors.map(color => convertToHex(color)).join(', ');
+  
+  navigator.clipboard.writeText(allHex);
+  showToast('Copied all HEX values');
+  setOpenMenuID(null); 
+}
 
   const handleMenuDelete = () => {
     if (paletteDetail) {
@@ -91,6 +142,20 @@ function App() {
     activeData = getTrueColorMath(rawColor);
   }
   useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest('.options-dropdown') && !e.target.closest('.options-btn')) {
+        setOpenMenuID(null); // Shut the menu!
+      }
+    };
+      if (openMenuID !== null) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [openMenuID]); 
+  
+  useEffect(() => {
     if (typeof chrome !== 'undefined' && chrome.storage) {
       chrome.storage.local.get(['savedPalettes'], (result) => {
         if(result.savedPalettes) {
@@ -100,13 +165,21 @@ function App() {
     }
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (toastTimerRef.current) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
+  }, []);
+
   const processColorResponse = (response, tabTitle) => {
     if (response && response.colors && response.colors.length > 0) {
       const cleanTitle = tabTitle.replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Untitled'; 
       const newPalette = {
         id: Date.now(),
         title: cleanTitle,
-        colors: response.colors.slice(0, 5) // Limit to top 5colors
+        colors: response.colors.slice(0, 8) // Limit to 9 colors
       };
 
       setPalettes(prev => {
@@ -201,7 +274,7 @@ function App() {
               {palettes.length === 0 ? (
                 <div className="empty-state-msg">
                   <p>No palettes captured yet.</p>
-                  <p style={{ fontSize: '10px', color: '#8c8a82' }}>Click below to scan!</p>
+                  <p>Click below to scan!</p>
                 </div>
               ) : (
                 palettes.map((palette) => (
@@ -209,18 +282,22 @@ function App() {
                     
                     {/* Top Section: Color Strip Bars */}
                     <div className="card-color-deck">
-                      {palette.colors.map((color, index) => (
-                        <div 
-                          key={index} 
-                          className="color-bar-slice" 
-                          style={{ backgroundColor: color }}
-                          title={`Click to copy: ${color}`}
-                          onClick={() => {
-                            navigator.clipboard.writeText(color);
-                            showToast(`Copied ${color}`);
-                          }}
-                        />
-                      ))}
+                      {palette.colors.map((color, index) => {
+                        const hexColor = convertToHex(color);
+
+                        return (
+                          <div 
+                            key={index} 
+                            className="color-bar-slice" 
+                            style={{ backgroundColor: color }}
+                            title={`Click to copy: ${hexColor}`}
+                            onClick={() => {
+                              navigator.clipboard.writeText(hexColor);
+                              showToast(`Copied ${hexColor}`);
+                            }}
+                          />
+                        );
+                      })}
                     </div>
 
                     {/* Bottom Section: The Metadata Tray Info Line */}
@@ -242,32 +319,32 @@ function App() {
 
                         {openMenuID === palette.id && (
                            <div className="options-dropdown">
-                          <div className="dropdown-item" onClick={handleRename}>
+                          <div className="dropdown-item" onClick={() => handleRename(palette)}>
                             <span className="dropdown-icon" aria-hidden="true">
                               <PencilSimple size={18} weight="bold" />
                             </span>
                             Rename
                           </div>
-                          <div className="dropdown-item" onClick={handleDuplicate}>
+                          <div className="dropdown-item" onClick={() => handleDuplicate(palette)}>
                             <span className="dropdown-icon" aria-hidden="true">
                               <Copy size={18} weight="bold" />
                             </span>
                             Duplicate
                           </div>
-                          <div className="dropdown-item" onClick={handleCopyAllHex}>
+                          <div className="dropdown-item" onClick={() => handleCopyAllHex(palette)}>
                             <span className="dropdown-icon" aria-hidden="true">
                               <Hash size={18} weight="bold" />
                             </span>
                             Copy All Hex
                           </div>
-                          <div className="dropdown-item" onClick={() => { showToast('Edit colors coming soon!'); setIsMenuOpen(false); }}>
+                          <div className="dropdown-item" onClick={() => { showToast('Edit colors coming soon!'); setOpenMenuID(null); }}>
                             <span className="dropdown-icon" aria-hidden="true">
                               <PaintBrush size={18} weight="bold" />
                             </span>
                             Edit Palette
                           </div>
                           <div className="dropdown-divider"></div>
-                          <div className="dropdown-item delete-text" onClick={() => requestDeletePalette(paletteDetail.id)}>
+                          <div className="dropdown-item delete-text" onClick={() => requestDeletePalette(palette.id)}>
                             <span className="dropdown-icon" aria-hidden="true">
                               <Trash size={18} weight="bold" />
                             </span>
@@ -451,6 +528,27 @@ function App() {
         </div>
       )}
 
+      {renameModalOpen && renameTarget && (
+        <div className="rename-backdrop" onClick={cancelRenameModal}>
+          <div className="rename-card" onClick={(event) => event.stopPropagation()}>
+            <div className="rename-title">Rename palette</div>
+            <p className="rename-copy">Pick a new name for this saved palette.</p>
+            <input
+              className="rename-input"
+              value={renameDraft}
+              onChange={(event) => setRenameDraft(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && confirmRename()}
+              autoFocus
+              maxLength={30}
+            />
+            <div className="rename-actions">
+              <button className="confirm-btn cancel" onClick={cancelRenameModal}>Cancel</button>
+              <button className="confirm-btn delete" onClick={confirmRename}>Save</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmDelete && (
         <div className="confirm-backdrop" onClick={cancelDelete}>
           <div className="confirm-card" onClick={(event) => event.stopPropagation()}>
@@ -467,6 +565,26 @@ function App() {
     </div>
   );
 }
+
+const convertToHex = (colorString) => {
+    if (colorString.startsWith('#')) return colorString;
+
+    const rgbValues = colorString.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
+    
+    if (!rgbValues) return colorString; 
+
+    const r = parseInt(rgbValues[1], 10).toString(16).padStart(2, '0');
+    const g = parseInt(rgbValues[2], 10).toString(16).padStart(2, '0');
+    const b = parseInt(rgbValues[3], 10).toString(16).padStart(2, '0');
+
+    // If there is an alpha channel (opacity), convert that to Hex too!
+    if (rgbValues[4]) {
+      const a = Math.round(parseFloat(rgbValues[4]) * 255).toString(16).padStart(2, '0');
+      return `#${r}${g}${b}${a}`.toUpperCase();
+    }
+
+    return `#${r}${g}${b}`.toUpperCase();
+};
 
 function isRestrictedUrl(url) {
    if (!url) return true; // If no URL, treat as restricted
