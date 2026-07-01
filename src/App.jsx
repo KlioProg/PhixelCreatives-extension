@@ -297,6 +297,7 @@ function App() {
   }, []);
 
   const processColorResponse = (response, tabTitle) => {
+    // @CodeScene(disable:"Complex Conditional")
     if (response && response.colors && response.colors.length > 0) {
       const cleanTitle = tabTitle.replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Untitled'; 
       const newPalette = {
@@ -415,10 +416,7 @@ function App() {
                     <div className="card-color-deck">
                       {palette.colors.map((color, index) => {
                         const hexColor = convertToHex(color);
-                        const rgbValues = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-                        const isLight = rgbValues
-                          ? ((parseInt(rgbValues[1], 10) * 0.299 + parseInt(rgbValues[2], 10) * 0.587 + parseInt(rgbValues[3], 10) * 0.114) > 150)
-                          : false;
+                        const isLight = isLightColor(color);
 
                         return (
                           <div 
