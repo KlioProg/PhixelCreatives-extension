@@ -122,6 +122,69 @@ body {
   border-radius: 10px;
 }
 
+
+
+/* --- OPTIONS DROPDOWN MENU --- */
+.options-dropdown {
+  position: absolute;
+  top: 32px; /* Pushes it just below the ••• button */
+  right: 0;
+  width: 150px;
+  background-color: #FFFFFF;
+  border: 1px solid #EAECE6;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); /* Soft elevation shadow */
+  padding: 6px;
+  z-index: 100; /* Ensures it stays on top of everything */
+  display: flex;
+  flex-direction: column;
+}
+
+/* --- INDIVIDUAL MENU ITEMS --- */
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Perfectly spaces the icon and the text */
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #333333;
+  border-radius: 6px; /* Rounds the hover effect nicely */
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  user-select: none;
+}
+
+.dropdown-item:hover {
+  background-color: #F3F4F6; /* Soft gray on hover */
+  color: #000000;
+}
+
+/* Ensures the icons inside the span align perfectly */
+.dropdown-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit; /* Inherits the color from the parent row */
+}
+
+/* --- THE DIVIDER LINE --- */
+.dropdown-divider {
+  height: 1px;
+  background-color: #EAECE6;
+  margin: 4px 0;
+}
+
+/* --- THE DANGER BUTTON (DELETE) --- */
+.dropdown-item.delete-text {
+  color: #DC2626; /* A crisp, readable red */
+}
+
+.dropdown-item.delete-text:hover {
+  background-color: #FEE2E2; /* Very soft red background on hover */
+  color: #991B1B; /* Darker red text on hover for contrast */
+}
+
 /* ==========================================================================
    THE 2-COLUMN PALETTE CARDS (Side-by-Side Deck)
    ========================================================================== */
@@ -139,9 +202,41 @@ body {
   display: flex;
   flex-direction: column;
   height: 128px;
-  box-shadow: 1px 2px 0px rgba(0, 0, 0, 0.15);
+  box-shadow: 1px 2px 0px rgba(21, 7, 7, 0.15);
 }
 
+.modal-topbar-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #121212;
+  margin-bottom: 4px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.options-menu-container {
+  display: flex;
+  align-items: center; /* Forces the dots to center vertically inside the wrapper */
+  justify-content: center;
+  position: relative; /* Keeps your dropdown anchored here */
+}
+
+.eye-icon-btn {
+  display: flex; /* This is the secret to perfectly centering SVGs */
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #555;
+  transition: color 0.1s ease;
+}
+
+.eye-icon-btn:hover {
+  color: #000;
+}
 /* Color blocks flex wrapper container */
 .card-color-deck {
   flex: 1;
@@ -185,6 +280,7 @@ body {
   display: flex;
   gap: 6px;
   align-items: center;
+  margin-top: 6px;
 }
 
 .icon-action-btn {
@@ -199,8 +295,8 @@ body {
   color: #000;
 }
 
-.delete-btn:hover {
-  color: #BC1B1B; /* Turns a nice warning red when they hover over the delete button */
+.options-btn:hover {
+  color: #000; /* Turns a nice warning red when they hover over the delete button */
 }
 
 /* ==========================================================================
