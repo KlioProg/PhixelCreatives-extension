@@ -11,6 +11,8 @@ function App() {
   const [colorIndex, setColorIndex] = useState(0);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [clearModalOpen, setClearModalOpen] = useState(false);
+  const [selectedClearIds, setSelectedClearIds] = useState([]);
   const [pendingDeleteId, setPendingDeleteId] = useState(null);
   const [toastMessage, setToastMessage] = useState('');
   const [toastVisible, setToastVisible] = useState(false);
@@ -200,6 +202,61 @@ function App() {
     setPendingDeleteId(null);
     setConfirmDelete(false);
   };
+
+  const handleClearAllPalettes = () => {
+    if (!palettes.length) {
+      showToast('No palettes to remove');
+      return;
+    }
+    setSelectedClearIds(palettes.map((palette) => palette.id));
+    setClearModalOpen(true);
+  };
+
+  const cancelClearModal = () => {
+    setClearModalOpen(false);
+    setSelectedClearIds([]);
+  };
+
+  const toggleClearSelection = (id) => {
+    setSelectedClearIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const confirmClearSelected = () => {
+    if (!selectedClearIds.length) return;
+
+    setPalettes((prev) => {
+      const updatedDeck = prev.filter((palette) => !selectedClearIds.includes(palette.id));
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.local.set({ savedPalettes: updatedDeck });
+      }
+      return updatedDeck;
+    });
+
+    if (paletteDetail && selectedClearIds.includes(paletteDetail.id)) {
+      setPaletteDetail(null);
+    }
+
+    showToast(`${selectedClearIds.length} palette${selectedClearIds.length === 1 ? '' : 's'} cleared`);
+    setClearModalOpen(false);
+    setSelectedClearIds([]);
+    setOpenMenuID(null);
+    setIsMenuOpen(false);
+  };
+
+  const confirmClearAllPalettes = () => {
+    setPalettes([]);
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.local.set({ savedPalettes: [] });
+    }
+    setPaletteDetail(null);
+    setOpenMenuID(null);
+    setIsMenuOpen(false);
+    setClearModalOpen(false);
+    setSelectedClearIds([]);
+    showToast('All palettes removed');
+  };
   
   let activeData = null;
   if (paletteDetail) {
@@ -329,6 +386,18 @@ function App() {
           Fonts
         </button>
       </nav>
+
+      {activeTab === 'colors' && palettes.length > 0 && (
+        <div className="palette-actions-bar palette-actions-tab">
+          <div className="palette-actions-toolbar">
+            <span className="palette-actions-label">Palette Actions</span>
+            <button className="clear-all-palettes-btn" onClick={handleClearAllPalettes}>
+              <Trash size={16} weight="bold" />
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       <main className="main-content-window">
         {activeTab === 'colors' && (
@@ -676,6 +745,48 @@ function App() {
             <div className="confirm-actions">
               <button className="confirm-btn cancel" onClick={cancelDelete}>Cancel</button>
               <button className="confirm-btn delete" onClick={confirmDeletePalette}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {clearModalOpen && (
+        <div className="confirm-backdrop" onClick={cancelClearModal}>
+          <div className="confirm-card" onClick={(event) => event.stopPropagation()}>
+            <div className="confirm-title">Select palettes to clear</div>
+            <p className="confirm-copy">Choose which palettes to delete, or clear every saved palette at once.</p>
+
+            <div className="clear-modal-counter">
+              <span>{selectedClearIds.length} selected</span>
+              <span>{palettes.length} total</span>
+            </div>
+
+            <div className="clear-selection-list">
+              {palettes.map((palette) => (
+                <button
+                  key={palette.id}
+                  type="button"
+                  className={`clear-selection-item ${selectedClearIds.includes(palette.id) ? 'selected' : ''}`}
+                  onClick={() => toggleClearSelection(palette.id)}
+                >
+                  <span className="clear-selection-checkbox">
+                    {selectedClearIds.includes(palette.id) ? '✓' : ''}
+                  </span>
+                  <span>{palette.title || 'Untitled palette'}</span>
+                </button>
+              ))}
+            </div>
+
+            <div className="confirm-actions">
+              <button className="confirm-btn cancel" onClick={cancelClearModal}>Cancel</button>
+              <button
+                className="confirm-btn delete"
+                onClick={confirmClearSelected}
+                disabled={!selectedClearIds.length}
+              >
+                {selectedClearIds.length ? `Clear ${selectedClearIds.length}` : 'Clear selected'}
+              </button>
+              <button className="confirm-btn clear-all" onClick={confirmClearAllPalettes}>Clear All</button>
             </div>
           </div>
         </div>
