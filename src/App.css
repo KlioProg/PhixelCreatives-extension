@@ -127,15 +127,15 @@ body {
 
 .options-dropdown {
   position: absolute;
-  top: 32px; /* Pushes it just below the ••• button */
+  top: 32px;
   right: 0;
   width: 150px;
-  background-color: #FFFFFF;
-  border: 1px solid #EAECE6;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); /* Soft elevation shadow */
+  background-color: #F4EFE1;
+  border: 2px solid #241C15;
+  border-radius: 4px;
+  box-shadow: 3px 3px 0 rgba(36, 28, 21, 0.25);
   padding: 6px;
-  z-index: 100; /* Ensures it stays on top of everything */
+  z-index: 100;
   display: flex;
   flex-direction: column;
 }
@@ -143,46 +143,48 @@ body {
 .dropdown-item {
   display: flex;
   align-items: center;
-  gap: 10px; /* Perfectly spaces the icon and the text */
+  gap: 10px;
   padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #333333;
-  border-radius: 6px; /* Rounds the hover effect nicely */
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #241C15;
+  border-radius: 3px;
   cursor: pointer;
-  transition: all 0.15s ease-in-out;
+  transition: background-color 0.1s ease, color 0.1s ease;
   user-select: none;
 }
 
 .dropdown-item:hover {
-  background-color: #F3F4F6; /* Soft gray on hover */
-  color: #000000;
+  background-color: #241C15;
+  color: #F4EFE1;
 }
 
-/* Ensures the icons inside the span align perfectly */
 .dropdown-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: inherit; /* Inherits the color from the parent row */
+  color: inherit;
 }
 
 .dropdown-divider {
-  height: 1px;
-  background-color: #EAECE6;
+  height: 2px;
+  background-color: #241C15;
+  opacity: 0.15;
   margin: 4px 0;
 }
 
 .dropdown-item.delete-text {
-  color: #C1502E; /* A crisp, readable red */
+  color: #922B21;
 }
 
 .dropdown-item.delete-text:hover {
-  background-color: #FEE2E2; /* Very soft red background on hover */
-  color: #991B1B; /* Darker red text on hover for contrast */
+  background-color: #922B21;
+  color: #F4EFE1;
 }
 
-/* THE 2-COLUMN PALETTE CARDS (Side-by-Side Deck) */
 .palette-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr); /* Clean 2-column split */
@@ -205,6 +207,46 @@ body {
   font-weight: bold;
   color: #121212;
   margin-bottom: 4px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 18, 18, 0.45);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1300;
+}
+
+.eye-modal {
+  width: 360px;
+  max-width: calc(100% - 32px);
+  background: #F4EFE1;
+  border: 2px solid #241C15;
+  border-radius: 8px;
+  box-shadow: 10px 10px 0 rgba(36, 28, 21, 0.22);
+  overflow: hidden;
+}
+
+.modal-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 12px;
+  border-bottom: 2px solid #241C15;
+}
+
+.modal-body {
+  padding: 20px 18px 18px;
+}
+
+.modal-bottom-ribbon {
+  display: flex;
+  min-height: 46px;
+  border: 2px solid #241C15;
+  overflow: hidden;
+  border-radius: 8px;
 }
 
 .header-actions {
@@ -239,57 +281,107 @@ body {
 }
 
 .color-bar-slice {
-  flex: 1;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: 0;
   height: 100%;
-  transition: transform 0.1s ease;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: flex-grow 0.35s cubic-bezier(0.25, 1, 0.5, 1), transform 0.25s ease;
 }
 
 .color-bar-slice:hover {
-  transform: scaleY(1.1); /* Subtle vertical pop feedback on color mouse hover */
-  cursor: pointer;
+  flex-grow: 3;
+  transform: translateY(-1px);
+}
+
+.slice-hex-label {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(0.95);
+  opacity: 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #ffffff;
+
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  pointer-events: none;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+  white-space: nowrap;
+  box-shadow: none;
+}
+
+.color-bar-slice:hover .slice-hex-label {
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
 }
 
 .card-meta-tray {
   height: 36px;
-  background-color: #EAECE6;
-  border-top: 1.5px solid #121212;
+  background-color: #F4EFE1;
+  border-top: 2px solid #241C15;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 6px;
+  padding: 0 10px;
   box-sizing: border-box;
 }
 
 .meta-site-name {
+  font-family: 'Space Mono', monospace;
   font-size: 9px;
-  font-weight: bold;
-  color: #121212;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: #241C15;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 120px;
+  max-width: 100px;
 }
 
 .meta-actions-group {
   display: flex;
   gap: 6px;
   align-items: center;
-  margin-top: 6px;
 }
 
 .icon-action-btn {
-  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 6px;
+  padding: 0;
   cursor: pointer;
-  color: #555;
+  color: #6B6455;
+  background: rgba(36, 28, 21, 0.04);
   user-select: none;
-  transition: color 0.1s ease;
+  transition: color 0.1s ease, transform 0.1s ease, background-color 0.1s ease;
+  margin: 0;
 }
+
 .icon-action-btn:hover {
-  color: #000;
+  color: #241C15;
+  transform: translateY(-1px);
+  background: rgba(36, 28, 21, 0.08);
 }
 
 .options-btn:hover {
-  color: #000; /* Turns a nice warning red when they hover over the delete button */
+  color: #922B21;
+  background: rgba(146, 43, 33, 0.1);
+}
+
+.options-btn:hover {
+  color: #922B21;
 }
 
 /* PINNED LOWER FOOTER EXTRACT DECK BUTTON */
@@ -486,13 +578,260 @@ body {
   box-shadow: 0 0 0 2px rgba(193, 80, 46, 0.15);
 }
 
-.rename-actions {
+.rename-actions,
+.edit-actions {
   display: flex;
   gap: 12px;
 }
 
-.rename-actions .confirm-btn {
+.rename-actions .confirm-btn,
+.edit-actions .confirm-btn {
   flex: 1;
 }
 
+/* --- EDIT MODAL STYLES --- */
+.edit-title {
+  font-family: 'Kemco', 'Space Mono', monospace;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  color: #241C15;
+}
+
+.edit-copy {
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  color: #6B6455;
+  line-height: 1.5;
+  margin: 0 0 14px;
+}
+
+.edit-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 14px;
+}
+
+.edit-clear-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #F4EFE1;
+  border: 2px solid #241C15;
+  border-radius: 6px;
+  color: #241C15;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  padding: 9px 12px;
+  cursor: pointer;
+  transition: transform 0.1s ease, background-color 0.1s ease, color 0.1s ease;
+  box-shadow: 4px 4px 0 #C9BFA5;
+}
+
+.edit-clear-btn:hover {
+  background: #241C15;
+  color: #F4EFE1;
+  transform: translateY(-1px);
+}
+
+.edit-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(18, 18, 18, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1400;
+  padding: 16px;
+}
+
+.edit-card {
+  width: 320px;
+  background: #F4EFE1;
+  border-radius: 4px;
+  padding: 20px;
+  box-shadow: 6px 6px 0 #241C15;
+  border: 2px solid #241C15;
+}
+
+.edit-colors-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 24px 0;
+  justify-content: center;
+}
+
+.edit-color-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-color-block {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  border: 2px solid #241C15;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 3px 3px 0 #C1502E;
+  transition: transform 0.1s ease;
+}
+
+.edit-color-block:hover {
+  transform: translate(-1px, -1px);
+  box-shadow: 4px 4px 0 #C1502E;
+}
+
+.hidden-color-input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.remove-color-btn {
+  background: #F4EFE1;
+  border: 2px solid #241C15;
+  border-radius: 4px;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #922B21;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s ease;
+}
+
+.remove-color-btn:hover {
+  background: #922B21;
+  color: #F4EFE1;
+  transform: translateY(-1px);
+}
+
+.add-color-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  border: 2px dashed #C9BFA5;
+  background: #F4EFE1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease, border-color 0.1s ease;
+}
+
+.add-color-wrapper:hover {
+  border-color: #241C15;
+  transform: translateY(-1px);
+}
+
+.add-plus {
+  font-family: 'Space Mono', monospace;
+  font-size: 22px;
+  font-weight: 700;
+  color: #6B6455;
+  line-height: 1;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.confirm-btn {
+  flex: 1;
+  border-radius: 4px;
+  padding: 10px 0;
+  font-family: 'Space Mono', monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.confirm-btn:hover {
+  transform: translateY(-1px);
+}
+
+.confirm-btn.cancel {
+  background: #F4EFE1;
+  color: #241C15;
+  border: 2px solid #241C15;
+  box-shadow: 3px 3px 0 #C9BFA5;
+}
+
+.confirm-btn.delete {
+  background: #C1502E;
+  color: #F4EFE1;
+  border: 2px solid #241C15;
+  box-shadow: 3px 3px 0 #241C15;
+}
+
+/* The secret invisible input */
+.hidden-color-input {
+  opacity: 0;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.remove-color-btn {
+  background: none;
+  border: none;
+  color: #D30000;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.remove-color-btn:hover {
+  background: rgba(211, 0, 0, 0.1);
+}
+
+.add-color-wrapper {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 2px dashed #8C8C8C;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 24px;
+  color: #8C8C8C;
+  background-color: rgba(0,0,0,0.02);
+}
+
+.add-color-wrapper:hover {
+  border-color: #121212;
+  color: #121212;
+}
+
+.modal-actions-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #EAECE6;
+}
 

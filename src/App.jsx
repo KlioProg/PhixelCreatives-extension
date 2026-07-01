@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
-import { PencilSimple, Copy, Hash, PaintBrush, Trash, Eye, DotsThree, X} from "@phosphor-icons/react";
+import { PencilSimple, Copy, Hash, PaintBrush, Trash, Eye, DotsThree, X, CaretUp } from "@phosphor-icons/react";
 
 
 function App() {
@@ -18,7 +18,29 @@ function App() {
   const [renameModalOpen, setRenameModalOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const [editingPalette, setEditingPalette] = useState(null);
   const toastTimerRef = useRef(null);
+
+  const handleEditColorChange = (index, newColor) => {
+    setEditingPalette(prev => {
+      if (!prev) return prev;
+      const updatedColors = [...prev.colors];
+      updatedColors[index] = newColor;
+      return { ...prev, colors: updatedColors };
+    });
+  };
+
+  const handleAddNewColor = () => {
+    if (!editingPalette) return;
+    if (editingPalette.colors.length >= 9) {
+      showToast('Maximum of 9 colors reached!');
+      return;
+    }
+    setEditingPalette(prev => ({
+      ...prev,
+      colors: [...prev.colors, "#FFFFFF"]
+    }));
+  };
 
   const showToast = (message) => {
     setToastMessage(message);
@@ -32,6 +54,51 @@ function App() {
       setToastVisible(false);
       setToastMessage('');
     }, 1800);
+  };
+
+  const handleRemoveColor = (index) => {
+    setEditingPalette(prev => {
+      if (!prev) return prev;
+      const updatedColors = prev.colors.filter((_, i) => i !== index);
+      return { ...prev, colors: updatedColors };
+    });
+  };
+
+  const handleClearPaletteColors = () => {
+    if (!editingPalette) return;
+    setEditingPalette(prev => prev ? { ...prev, colors: [] } : prev);
+    showToast('All colors removed');
+  };
+
+  const isLightColor = (colorString) => {
+    const hexColor = convertToHex(colorString).replace(/^#/, '');
+    if (!/^([A-Fa-f0-9]{6})/.test(hexColor)) return false;
+    const normalized = hexColor.slice(0, 6);
+    const r = parseInt(normalized.slice(0, 2), 16);
+    const g = parseInt(normalized.slice(2, 4), 16);
+    const b = parseInt(normalized.slice(4, 6), 16);
+    return (r * 0.299 + g * 0.587 + b * 0.114) > 150;
+  };
+
+  const handleSaveEditedPalette = () => {
+    if (!editingPalette) return;
+    setPalettes(prev => {
+      const updatedDeck = prev.map(palette =>
+        palette.id === editingPalette.id ? { ...editingPalette } : palette
+      );
+      
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.local.set({ savedPalettes: updatedDeck });
+      }
+      return updatedDeck;
+    });
+
+    if (paletteDetail?.id === editingPalette.id) {
+      setPaletteDetail({ ...editingPalette });
+    }
+
+    setEditingPalette(null);
+    showToast('Palette updated');
   };
 
   const openRenameModal = (targetPalette) => {
@@ -90,7 +157,6 @@ function App() {
     setPalettes(prev => {
       const updatedDeck = [newPalette, ...prev];
       
-      // Safety check so it doesn't crash on localhost
       if (typeof chrome !== "undefined" && chrome.storage) {
         chrome.storage.local.set({ savedPalettes: updatedDeck });
       }
@@ -239,12 +305,10 @@ function App() {
   return (
     <div className="phixel-container">
       
-      {/* Slim Red Brand Header Box */}
       <header className="brand-header">
         <h1 className="brand-title">PHIXEL</h1>
       </header>
 
-      {/* Retro Tab Navbar Controllers */}
       <nav className="tab-navbar">
         <button 
           className={`nav-tab ${activeTab === 'colors' ? 'active' : ''}`}
@@ -266,7 +330,6 @@ function App() {
         </button>
       </nav>
 
-      {/* Scroll Context Display Area */}
       <main className="main-content-window">
         {activeTab === 'colors' && (
           <>
@@ -280,10 +343,13 @@ function App() {
                 palettes.map((palette) => (
                   <div key={palette.id} className="palette-card">
                     
-                    {/* Top Section: Color Strip Bars */}
                     <div className="card-color-deck">
                       {palette.colors.map((color, index) => {
                         const hexColor = convertToHex(color);
+                        const rgbValues = color.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+                        const isLight = rgbValues
+                          ? ((parseInt(rgbValues[1], 10) * 0.299 + parseInt(rgbValues[2], 10) * 0.587 + parseInt(rgbValues[3], 10) * 0.114) > 150)
+                          : false;
 
                         return (
                           <div 
@@ -295,12 +361,12 @@ function App() {
                               navigator.clipboard.writeText(hexColor);
                               showToast(`Copied ${hexColor}`);
                             }}
-                          />
+                          >
+                            <span className="slice-hex-label" style={{ color: isLight ? '#121212' : '#ffffff' }}>{hexColor}</span>
+                          </div>
                         );
                       })}
                     </div>
-
-                    {/* Bottom Section: The Metadata Tray Info Line */}
                     <div className="card-meta-tray">
                       <span className="meta-site-name">{palette.title}</span>
                       <div className="meta-actions-group">
@@ -308,13 +374,13 @@ function App() {
                           className="icon-action-btn" 
                           title="View Detail" 
                           onClick={() => setPaletteDetail(palette)}>
-                            <Eye size={18} weight="regular" />
+                            <Eye size={16} weight="bold" />
                         </span>
                         <span 
                           className="icon-action-btn options-btn" 
                           title="Options" 
-                          onClick={() => setOpenMenuID(openMenuID === palette.id ? null : palette.id)}                        >
-                          <DotsThree size={22} weight="regular" />
+                          onClick={() => setOpenMenuID(openMenuID === palette.id ? null : palette.id)}>
+                          <DotsThree size={18} weight="bold" />
                         </span>
 
                         {openMenuID === palette.id && (
@@ -337,10 +403,13 @@ function App() {
                             </span>
                             Copy All Hex
                           </div>
-                          <div className="dropdown-item" onClick={() => { showToast('Edit colors coming soon!'); setOpenMenuID(null); }}>
-                            <span className="dropdown-icon" aria-hidden="true">
-                              <PaintBrush size={18} weight="bold" />
-                            </span>
+                          <div className="dropdown-item" onClick={(e) => { 
+                            e.stopPropagation(); 
+                            const cleanHexColors = palette.colors.map(c => convertToHex(c).substring(0, 7));
+                            setEditingPalette({ ...palette, colors: cleanHexColors }); 
+                            setOpenMenuID(null); 
+                          }}>
+                            <span className="dropdown-icon" aria-hidden="true"><PaintBrush size={18} weight="bold" /></span>
                             Edit Palette
                           </div>
                           <div className="dropdown-divider"></div>
@@ -394,7 +463,11 @@ function App() {
                             </span>
                             Copy All Hex
                           </div>   
-                          <div className="dropdown-item" onClick={() => { showToast('Edit colors coming soon!'); setIsMenuOpen(false); }}>
+                          <div className="dropdown-item" onClick={() => { 
+                            const cleanHexColors = paletteDetail.colors.map(c => convertToHex(c).substring(0, 7));
+                            setEditingPalette({ ...paletteDetail, colors: cleanHexColors });
+                            setIsMenuOpen(false);
+                          }}>
                             <span className="dropdown-icon" aria-hidden="true">
                               <PaintBrush size={18} weight="bold" />
                             </span>
@@ -424,7 +497,6 @@ function App() {
                       className="modal-body"
                       style={{ 
                         backgroundColor: activeData ? activeData.hex : '#0F1722',
-                        /* Automatically flips text to black or white! */
                         color: activeData?.isLight ? '#08060d' : '#FFFFFF', 
                         transition: 'background-color 0.3s ease, color 0.3s ease'
                       }}
@@ -482,13 +554,12 @@ function App() {
                           style={{ backgroundColor: color }}
                           onClick={() => setColorIndex(index)}
                         >
-                          {/* 2. Show the arrow ONLY if this is the active slice */}
                           {index === colorIndex && (
                             <div 
                               className="active-arrow" 
-                              style={{ color: isLight ? '#08060d' : '#EDEDE9' }}
+                              style={{ color: isLight ? '#121212' : '#FFFFFF' }}
                             >
-                              ^
+                              <CaretUp size={20} weight="bold" />
                             </div>
                           )}
                         </div>
@@ -511,7 +582,6 @@ function App() {
         )}
       </main>
 
-      {/* Fixed Lower Footer Green Action Button */}
       <footer className="footer-control-deck">
         <button 
           className="extract-btn" 
@@ -521,6 +591,55 @@ function App() {
           {loading ? "SCANNING SITE..." : "GET COLORS!"}
         </button>
       </footer>
+
+      {editingPalette && (
+        <div className="edit-backdrop" onClick={() => setEditingPalette(null)}>
+          <div className="edit-card" onClick={(e) => e.stopPropagation()}>
+            <div className="edit-title">Edit palette</div>
+            <p className="edit-copy">Adjust colors then save to update your palette.</p>
+
+            <div className="edit-toolbar">
+              <button className="edit-clear-btn" title="Remove all colors from this palette" onClick={handleClearPaletteColors}>
+                <Trash size={16} weight="bold" />
+                <span>Remove All</span>
+              </button>
+            </div>
+
+            <div className="edit-colors-grid">
+              {editingPalette.colors.map((color, index) => (
+                <div key={index} className="edit-color-wrapper">
+                  <label 
+                    className="edit-color-block" 
+                    style={{ backgroundColor: color }}
+                    title="Click to pick a new color"
+                  >
+                    <input 
+                      type="color" 
+                      value={color} 
+                      onChange={(e) => handleEditColorChange(index, e.target.value)}
+                      className="hidden-color-input"
+                    />
+                  </label>
+                  <button className="remove-color-btn" onClick={() => handleRemoveColor(index)}>
+                    <Trash size={14} weight="bold" />
+                  </button>
+                </div>
+              ))}
+
+              {editingPalette.colors.length < 9 && (
+                <div className="add-color-wrapper" onClick={handleAddNewColor}>
+                  <span className="add-plus">+</span>
+                </div>
+              )}
+            </div>
+
+            <div className="edit-actions">
+              <button className="confirm-btn cancel" onClick={() => setEditingPalette(null)}>Cancel</button>
+              <button className="confirm-btn delete" onClick={handleSaveEditedPalette}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {toastVisible && (
         <div className="toast-banner" role="status">
