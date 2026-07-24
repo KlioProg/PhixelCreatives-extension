@@ -1,3 +1,5 @@
+/* global chrome */
+
 const MAX_PALETTE_COLORS = 9;
 
 const parseCssColor = (cssColor) => {
@@ -245,6 +247,39 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
+  if (request.action === 'extractFonts') {
+    const fontMap = new Map();
+    const allTextElements = Array.from(document.querySelectorAll('body *'));
+
+    allTextElements.forEach((element) => {
+      if (!isVisibleElement(element)) return;
+      const style = window.getComputedStyle(element);
+      const text = element.innerText?.trim();
+      if (!text) return;
+
+      const fontFamily = style.fontFamily || 'Unknown';
+      const fontSize = style.fontSize || 'inherit';
+      const fontWeight = style.fontWeight || 'normal';
+      const fontStyle = style.fontStyle || 'normal';
+      const key = `${fontFamily}||${fontWeight}||${fontStyle}||${fontSize}`;
+
+      if (!fontMap.has(key)) {
+        fontMap.set(key, {
+          id: Date.now() + fontMap.size,
+          fontFamily,
+          fontSize,
+          fontWeight,
+          fontStyle,
+          sampleText: text.split('\n').map((line) => line.trim()).filter(Boolean).slice(0, 2).join(' ') || 'Sample text'
+        });
+      }
+    });
+
+    const fonts = Array.from(fontMap.values()).slice(0, 20);
+    sendResponse({ fonts });
+    return true;
+  }
+
   if (request.action === 'pickFont') {
     if (activeFontPicker) {
       sendResponse({ canceled: true, error: 'Font picker already active' });
@@ -282,4 +317,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         cleanupFontPicker();
         if (typeof chrome !== 'undefined' && chrome.storage) {
           chrome.storage.local.set({ latestFontCapture: { canceled: true } });
+        }
+      }
+    };
+
+    activeFontPicker = {
+      clickHandler,
+      mousemoveHandler,
+      keydownHandler
+    };
+
+    createFontPickerOverlay();
+    createFontPickerHighlight();
+    document.addEventListener('mousemove', mousemoveHandler, true);
+    document.addEventListener('click', clickHandler, true);
+    document.addEventListener('keydown', keydownHandler, true);
+
+    sendResponse({ started: true });
+    return true;
+  }
 });

@@ -581,6 +581,27 @@ body {
   color: #F4EFE1;
 }
 
+.clear-fonts-btn {
+  background: #F7B731;
+  color: #241C15;
+  border-color: #D18F13;
+}
+
+.clear-fonts-btn:hover {
+  background: #E49F20;
+}
+
+.extract-btn.font-footer-btn {
+  background-color: #E94F1B;
+  color: #F4E64C;
+  border-color: #9A1200;
+  text-shadow: 1px 1px 0px rgba(0,0,0,0.12);
+}
+
+.extract-btn.font-footer-btn:hover {
+  background-color: #D7370F;
+}
+
 .extract-btn:disabled {
   background-color: #C1BEB5;
   color: #7A7871;

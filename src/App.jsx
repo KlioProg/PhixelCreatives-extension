@@ -1,3 +1,4 @@
+/* global chrome */
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import { PencilSimple, Copy, Hash, PaintBrush, Trash, Eye, DotsThree, X, CaretUp } from "@phosphor-icons/react";
@@ -161,28 +162,123 @@ function App() {
     }
 
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab) {
+    if (!tab || typeof tab.id !== 'number') {
       setFontPickerActive(false);
       showToast('No active tab found.');
       return;
     }
 
-    chrome.tabs.sendMessage(tab.id, { action: 'pickFont' }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error('Error', chrome.runtime.lastError.message);
+    let attemptedInjection = false;
+    const sendPickFontMessage = () => {
+      chrome.tabs.sendMessage(tab.id, { action: 'pickFont' }, (response) => {
+        if (chrome.runtime.lastError) {
+          const errorMsg = chrome.runtime.lastError.message;
+          console.error('Error', errorMsg);
+
+          if (!attemptedInjection && errorMsg.includes('Receiving end does not exist')) {
+            attemptedInjection = true;
+            chrome.scripting.executeScript(
+              { target: { tabId: tab.id }, files: ['content.js'] },
+              () => {
+                if (chrome.runtime.lastError) {
+                  const injectError = chrome.runtime.lastError.message;
+                  console.error('Injection error', injectError);
+                  setFontPickerActive(false);
+                  showToast(`Cannot inject content script: ${injectError}`);
+                  return;
+                }
+                sendPickFontMessage();
+              }
+            );
+            return;
+          }
+
+          setFontPickerActive(false);
+          showToast(`Failed to communicate with the page: ${errorMsg}`);
+          return;
+        }
+
+        if (response?.started) {
+          showToast('Font picker active. Select page text now.');
+          return;
+        }
+
         setFontPickerActive(false);
-        showToast('Failed to communicate with the page.');
-        return;
-      }
+        showToast('Font picker could not start. The page may not be supported.');
+      });
+    };
 
-      if (response?.started) {
-        showToast('Font picker active. Select page text now.');
-        return;
-      }
+    sendPickFontMessage();
+  };
 
-      setFontPickerActive(false);
-      showToast('Font pick could not start.');
-    });
+  const handleClearFonts = () => {
+    if (!fonts.length) {
+      showToast('No fonts to remove');
+      return;
+    }
+    setFonts([]);
+    setFontDetail(null);
+    setFontPickerActive(false);
+    showToast('Fonts cleared');
+  };
+
+  const handleExtractFonts = async () => {
+    setLoading(true);
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab || typeof tab.id !== 'number') {
+      setLoading(false);
+      showToast('No active tab found.');
+      return;
+    }
+
+    if (isRestrictedUrl(tab.url)) {
+      setLoading(false);
+      showToast('This extension cannot access the current page. Please navigate to a supported webpage.');
+      return;
+    }
+
+    let attemptedInjection = false;
+    const sendExtractFontsMessage = () => {
+      chrome.tabs.sendMessage(tab.id, { action: 'extractFonts' }, (response) => {
+        if (chrome.runtime.lastError) {
+          const errorMsg = chrome.runtime.lastError.message;
+          console.error('Error', errorMsg);
+
+          if (!attemptedInjection && errorMsg.includes('Receiving end does not exist')) {
+            attemptedInjection = true;
+            chrome.scripting.executeScript(
+              { target: { tabId: tab.id }, files: ['content.js'] },
+              () => {
+                if (chrome.runtime.lastError) {
+                  const injectError = chrome.runtime.lastError.message;
+                  console.error('Injection error', injectError);
+                  setLoading(false);
+                  showToast(`Cannot inject content script: ${injectError}`);
+                  return;
+                }
+                sendExtractFontsMessage();
+              }
+            );
+            return;
+          }
+
+          setLoading(false);
+          showToast('Failed to communicate with the page.');
+          return;
+        }
+
+        setLoading(false);
+        const capturedFonts = Array.isArray(response?.fonts) ? response.fonts : [];
+        setFonts(capturedFonts);
+        if (capturedFonts.length > 0) {
+          showToast(`Captured ${capturedFonts.length} font${capturedFonts.length === 1 ? '' : 's'}`);
+        } else {
+          showToast('No visible fonts found on this page.');
+        }
+      });
+    };
+
+    sendExtractFontsMessage();
   };
 
   const handleRemoveFont = (id) => {
@@ -378,6 +474,7 @@ function App() {
     };
   }, [openMenuID]); 
   
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!pendingColorPickerId) return;
     const colorInput = colorInputRefs.current[pendingColorPickerId];
@@ -778,35 +875,35 @@ function App() {
           <>
             <div className="palette-actions-bar palette-actions-tab">
               <div className="palette-actions-toolbar">
-                <span className="palette-actions-label">Font Capture</span>
-                <button className="clear-all-palettes-btn" onClick={handlePickFont}>
-                  <Eye size={16} weight="bold" />
-                  <span>Pick Font</span>
-                </button>
-              </div>
+                  <span className="palette-actions-label">Font Capture</span>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="clear-all-palettes-btn clear-fonts-btn" onClick={handleClearFonts} disabled={!fonts.length}>
+                      <Trash size={16} weight="bold" />
+                      <span>Clear fonts</span>
+                    </button>
+                    <button className="clear-all-palettes-btn" onClick={handlePickFont} disabled={fontPickerActive}>
+                      <span>Pick Font</span>
+                    </button>
+                  </div>
+                </div>
             </div>
 
             {fonts.length === 0 ? (
               <div className="empty-state-msg">
                 <p>No fonts captured yet.</p>
-                <p>Click "Pick Font" to capture one from the page.</p>
+                <p>Click the footer button to capture fonts from the page.</p>
               </div>
             ) : (
               <div className="palette-grid">
                 {fonts.map((font) => (
-                  <div key={font.id} className="palette-card font-card">
+                  <div key={font.id} className="palette-card font-card" onClick={() => handleOpenFontDetail(font)}>
                     <div className="font-card-preview" style={{ fontFamily: font.fontFamily, fontWeight: font.fontWeight, fontStyle: font.fontStyle }}>
-                      {font.sampleText}
+                      <span className="font-card-name">{font.fontFamily}</span>
+                      <span className="font-card-sample">{font.sampleText}</span>
                     </div>
                     <div className="card-meta-tray">
                       <span className="meta-site-name">{font.fontFamily}</span>
                       <div className="meta-actions-group">
-                        <span 
-                          className="icon-action-btn" 
-                          title="View Font" 
-                          onClick={() => handleOpenFontDetail(font)}>
-                          <Eye size={16} weight="bold" />
-                        </span>
                         <span 
                           className="icon-action-btn delete-text" 
                           title="Remove font" 
@@ -819,23 +916,17 @@ function App() {
                 ))}
               </div>
             )}
-
-            {fontPickerActive && (
-              <div className="font-pick-notice">
-                <p>Waiting for font selection on the page...</p>
-              </div>
-            )}
           </>
         )}
       </main>
 
       <footer className="footer-control-deck">
         <button 
-          className="extract-btn" 
-          onClick={handleExtractColors} 
-          disabled={loading || activeTab !== 'colors'}
+          className={`extract-btn ${activeTab === 'fonts' ? 'font-footer-btn' : ''}`} 
+          onClick={activeTab === 'fonts' ? handleExtractFonts : handleExtractColors} 
+          disabled={loading || (activeTab !== 'colors' && activeTab !== 'fonts')}
         >
-          {loading ? "SCANNING SITE..." : "GET COLORS!"}
+          {loading ? (activeTab === 'colors' ? 'SCANNING SITE...' : 'PROCESSING...') : (activeTab === 'fonts' ? 'GET FONT!' : 'GET COLORS!')}
         </button>
       </footer>
 

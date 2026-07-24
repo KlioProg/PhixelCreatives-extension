@@ -1,3 +1,5 @@
+/* global chrome */
+
 chrome.runtime.onInstalled.addListener(() => {
   console.log('Phixel background worker installed');
 });
