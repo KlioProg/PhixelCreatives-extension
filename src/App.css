@@ -217,6 +217,41 @@ body {
   box-shadow: 1px 2px 0px rgba(21, 7, 7, 0.15);
 }
 
+.font-card {
+  min-height: 170px;
+}
+
+.font-card-preview {
+  min-height: 100px;
+  padding: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #FFFFFF;
+  background: #241C15;
+  border-bottom: 1.5px solid #121212;
+  word-break: break-word;
+  overflow: hidden;
+}
+
+.font-pick-notice {
+  grid-column: span 2;
+  margin: 0 auto 16px;
+  padding: 16px 14px;
+  background: #F4EFE1;
+  border: 2px dashed #241C15;
+  border-radius: 12px;
+  color: #241C15;
+  text-transform: uppercase;
+  font-family: 'Space Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.35px;
+  line-height: 1.5;
+}
+
 .modal-topbar-title {
   font-size: 12px;
   font-weight: bold;
@@ -910,7 +945,19 @@ body {
   position: relative;
   overflow: hidden;
   box-shadow: 3px 3px 0 #C1502E;
-  transition: transform 0.1s ease;
+  transition: transform 0.1s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.edit-color-block.pending {
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(36, 28, 21, 0.12),
+    rgba(36, 28, 21, 0.12) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+  border-color: #59E843;
+  box-shadow: 0 0 0 3px rgba(89, 232, 67, 0.25), inset 0 0 0 1px #59E843;
 }
 
 .edit-color-block:hover {

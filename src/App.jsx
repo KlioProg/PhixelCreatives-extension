@@ -3,6 +3,18 @@ import './App.css'
 import { PencilSimple, Copy, Hash, PaintBrush, Trash, Eye, DotsThree, X, CaretUp } from "@phosphor-icons/react";
 
 
+const createEditColorItems = (colors, baseId) => {
+  return colors.map((color, index) => ({
+    id: `${baseId}-${index}-${Date.now()}`,
+    value: color
+  }));
+};
+
+const createColorItem = (baseId, value) => ({
+  id: `${baseId}-${Date.now()}`,
+  value
+});
+
 function App() {
   const [activeTab, setActiveTab] = useState('colors');
   const [palettes, setPalettes] = useState([]);
@@ -21,13 +33,20 @@ function App() {
   const [renameTarget, setRenameTarget] = useState(null);
   const [renameDraft, setRenameDraft] = useState('');
   const [editingPalette, setEditingPalette] = useState(null);
+  const [fonts, setFonts] = useState([]);
+  const [fontDetail, setFontDetail] = useState(null);
+  const [fontPreviewText, setFontPreviewText] = useState('The quick brown fox jumps over the lazy dog');
+  const [fontPickerActive, setFontPickerActive] = useState(false);
+  const [pendingColorPickerId, setPendingColorPickerId] = useState(null);
   const toastTimerRef = useRef(null);
+  const colorInputRefs = useRef({});
 
-  const handleEditColorChange = (index, newColor) => {
+  const handleEditColorChange = (colorId, newColor) => {
     setEditingPalette(prev => {
       if (!prev) return prev;
-      const updatedColors = [...prev.colors];
-      updatedColors[index] = newColor;
+      const updatedColors = prev.colors.map((colorItem) =>
+        colorItem.id === colorId ? { ...colorItem, value: newColor } : colorItem
+      );
       return { ...prev, colors: updatedColors };
     });
   };
@@ -38,10 +57,16 @@ function App() {
       showToast('Maximum of 9 colors reached!');
       return;
     }
+
+    const newColorItem = createColorItem(editingPalette.id, '#FFFFFF');
     setEditingPalette(prev => ({
       ...prev,
-      colors: [...prev.colors, "#FFFFFF"]
+      colors: [
+        ...prev.colors,
+        newColorItem
+      ]
     }));
+    setPendingColorPickerId(newColorItem.id);
   };
 
   const showToast = (message) => {
@@ -58,17 +83,21 @@ function App() {
     }, 1800);
   };
 
-  const handleRemoveColor = (index) => {
+  const handleRemoveColor = (colorId) => {
     setEditingPalette(prev => {
       if (!prev) return prev;
-      const updatedColors = prev.colors.filter((_, i) => i !== index);
+      const updatedColors = prev.colors.filter((colorItem) => colorItem.id !== colorId);
       return { ...prev, colors: updatedColors };
     });
+    if (pendingColorPickerId === colorId) {
+      setPendingColorPickerId(null);
+    }
   };
 
   const handleClearPaletteColors = () => {
     if (!editingPalette) return;
     setEditingPalette(prev => prev ? { ...prev, colors: [] } : prev);
+    setPendingColorPickerId(null);
     showToast('All colors removed');
   };
 
@@ -82,11 +111,17 @@ function App() {
     return (r * 0.299 + g * 0.587 + b * 0.114) > 150;
   };
 
+  const getEditPaletteColorValues = (editPalette) => {
+    return editPalette?.colors?.map((colorItem) => colorItem.value) ?? [];
+  };
+
   const handleSaveEditedPalette = () => {
     if (!editingPalette) return;
+    const savedColors = getEditPaletteColorValues(editingPalette);
+
     setPalettes(prev => {
       const updatedDeck = prev.map(palette =>
-        palette.id === editingPalette.id ? { ...editingPalette } : palette
+        palette.id === editingPalette.id ? { ...editingPalette, colors: savedColors } : palette
       );
       
       if (typeof chrome !== 'undefined' && chrome.storage) {
@@ -96,11 +131,85 @@ function App() {
     });
 
     if (paletteDetail?.id === editingPalette.id) {
-      setPaletteDetail({ ...editingPalette });
+      setPaletteDetail(prev => prev ? { ...prev, colors: savedColors } : prev);
     }
 
     setEditingPalette(null);
     showToast('Palette updated');
+  };
+
+  const addFontFromCapture = (fontData) => {
+    const fontItem = {
+      id: Date.now(),
+      fontFamily: fontData.fontFamily,
+      fontSize: fontData.fontSize,
+      fontWeight: fontData.fontWeight,
+      fontStyle: fontData.fontStyle,
+      sampleText: fontData.sampleText || 'The quick brown fox jumps over the lazy dog'
+    };
+    setFonts((prev) => [fontItem, ...prev]);
+    setFontPickerActive(false);
+    showToast(`Captured font: ${fontItem.fontFamily}`);
+  };
+
+  const handlePickFont = async () => {
+    setFontPickerActive(true);
+    showToast('Starting font picker. Click text on the page.');
+
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.local.remove(['latestFontCapture']);
+    }
+
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab) {
+      setFontPickerActive(false);
+      showToast('No active tab found.');
+      return;
+    }
+
+    chrome.tabs.sendMessage(tab.id, { action: 'pickFont' }, (response) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error', chrome.runtime.lastError.message);
+        setFontPickerActive(false);
+        showToast('Failed to communicate with the page.');
+        return;
+      }
+
+      if (response?.started) {
+        showToast('Font picker active. Select page text now.');
+        return;
+      }
+
+      setFontPickerActive(false);
+      showToast('Font pick could not start.');
+    });
+  };
+
+  const handleRemoveFont = (id) => {
+    setFonts((prev) => prev.filter((font) => font.id !== id));
+    if (fontDetail?.id === id) {
+      setFontDetail(null);
+    }
+  };
+
+  const handleOpenFontDetail = (font) => {
+    setFontDetail(font);
+    setFontPreviewText(font.sampleText || 'The quick brown fox jumps over the lazy dog');
+  };
+
+  const closeFontDetail = () => {
+    setFontDetail(null);
+  };
+
+  const handleFontPreviewTextChange = (event) => {
+    setFontPreviewText(event.target.value);
+  };
+
+  const handleCopyFontCss = () => {
+    if (!fontDetail) return;
+    const cssText = `font-family: ${fontDetail.fontFamily}; font-size: ${fontDetail.fontSize}; font-weight: ${fontDetail.fontWeight}; font-style: ${fontDetail.fontStyle};`;
+    navigator.clipboard.writeText(cssText);
+    showToast('Font CSS copied');
   };
 
   const openRenameModal = (targetPalette) => {
@@ -170,19 +279,10 @@ function App() {
   }
 
   const handleCopyAllHex = (targetPalette) => {
-  const allHex = targetPalette.colors.map(color => convertToHex(color)).join(', ');
-  
-  navigator.clipboard.writeText(allHex);
-  showToast('Copied all HEX values');
-  setOpenMenuID(null); 
-}
-
-  const handleMenuDelete = () => {
-    if (paletteDetail) {
-      setPendingDeleteId(paletteDetail.id);
-      setIsMenuOpen(false);
-      setConfirmDelete(true);
-    }
+    const allHex = targetPalette.colors.map(color => convertToHex(color)).join(', ');
+    navigator.clipboard.writeText(allHex);
+    showToast('Copied all HEX values');
+    setOpenMenuID(null);
   }
 
   const requestDeletePalette = (id) => {
@@ -279,6 +379,15 @@ function App() {
   }, [openMenuID]); 
   
   useEffect(() => {
+    if (!pendingColorPickerId) return;
+    const colorInput = colorInputRefs.current[pendingColorPickerId];
+    if (colorInput) {
+      window.requestAnimationFrame(() => colorInput.click());
+      setPendingColorPickerId(null);
+    }
+  }, [pendingColorPickerId]);
+
+  useEffect(() => {
     if (typeof chrome !== 'undefined' && chrome.storage) {
       chrome.storage.local.get(['savedPalettes'], (result) => {
         if(result.savedPalettes) {
@@ -289,7 +398,38 @@ function App() {
   }, []);
 
   useEffect(() => {
+    const consumeStoredCapture = () => {
+      if (typeof chrome === 'undefined' || !chrome.storage) return;
+      chrome.storage.local.get(['latestFontCapture'], (result) => {
+        if (result.latestFontCapture && !result.latestFontCapture.canceled) {
+          addFontFromCapture(result.latestFontCapture);
+        }
+        if (result.latestFontCapture) {
+          chrome.storage.local.remove(['latestFontCapture']);
+        }
+      });
+    };
+
+    const storageChangeHandler = (changes, area) => {
+      if (area !== 'local') return;
+      if (changes.latestFontCapture?.newValue) {
+        const newCapture = changes.latestFontCapture.newValue;
+        if (!newCapture.canceled) {
+          addFontFromCapture(newCapture);
+        }
+        chrome.storage.local.remove(['latestFontCapture']);
+      }
+    };
+
+    consumeStoredCapture();
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.onChanged.addListener(storageChangeHandler);
+    }
+
     return () => {
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.onChanged.removeListener(storageChangeHandler);
+      }
       if (toastTimerRef.current) {
         window.clearTimeout(toastTimerRef.current);
       }
@@ -373,12 +513,6 @@ function App() {
           onClick={() => setActiveTab('colors')}
         >
           Colors
-        </button>
-        <button 
-          className={`nav-tab ${activeTab === 'vectors' ? 'active' : ''}`}
-          onClick={() => setActiveTab('vectors')}
-        >
-          Vectors
         </button>
         <button 
           className={`nav-tab ${activeTab === 'fonts' ? 'active' : ''}`}
@@ -473,7 +607,7 @@ function App() {
                           <div className="dropdown-item" onClick={(e) => { 
                             e.stopPropagation(); 
                             const cleanHexColors = palette.colors.map(c => convertToHex(c).substring(0, 7));
-                            setEditingPalette({ ...palette, colors: cleanHexColors }); 
+                            setEditingPalette({ ...palette, colors: createEditColorItems(cleanHexColors, palette.id) }); 
                             setOpenMenuID(null); 
                           }}>
                             <span className="dropdown-icon" aria-hidden="true"><PaintBrush size={18} weight="bold" /></span>
@@ -532,7 +666,7 @@ function App() {
                           </div>   
                           <div className="dropdown-item" onClick={() => { 
                             const cleanHexColors = paletteDetail.colors.map(c => convertToHex(c).substring(0, 7));
-                            setEditingPalette({ ...paletteDetail, colors: cleanHexColors });
+                            setEditingPalette({ ...paletteDetail, colors: createEditColorItems(cleanHexColors, paletteDetail.id) });
                             setIsMenuOpen(false);
                           }}>
                             <span className="dropdown-icon" aria-hidden="true">
@@ -640,12 +774,58 @@ function App() {
         )}
 
         {/* Placeholder panes for your next phase additions */}
-        {activeTab === 'vectors' && (
-          <div className="placeholder-pane">Vector Module coming in Phase 2!</div>
-        )}
-        
         {activeTab === 'fonts' && (
-          <div className="placeholder-pane">Font Module coming in Phase 3!</div>
+          <>
+            <div className="palette-actions-bar palette-actions-tab">
+              <div className="palette-actions-toolbar">
+                <span className="palette-actions-label">Font Capture</span>
+                <button className="clear-all-palettes-btn" onClick={handlePickFont}>
+                  <Eye size={16} weight="bold" />
+                  <span>Pick Font</span>
+                </button>
+              </div>
+            </div>
+
+            {fonts.length === 0 ? (
+              <div className="empty-state-msg">
+                <p>No fonts captured yet.</p>
+                <p>Click "Pick Font" to capture one from the page.</p>
+              </div>
+            ) : (
+              <div className="palette-grid">
+                {fonts.map((font) => (
+                  <div key={font.id} className="palette-card font-card">
+                    <div className="font-card-preview" style={{ fontFamily: font.fontFamily, fontWeight: font.fontWeight, fontStyle: font.fontStyle }}>
+                      {font.sampleText}
+                    </div>
+                    <div className="card-meta-tray">
+                      <span className="meta-site-name">{font.fontFamily}</span>
+                      <div className="meta-actions-group">
+                        <span 
+                          className="icon-action-btn" 
+                          title="View Font" 
+                          onClick={() => handleOpenFontDetail(font)}>
+                          <Eye size={16} weight="bold" />
+                        </span>
+                        <span 
+                          className="icon-action-btn delete-text" 
+                          title="Remove font" 
+                          onClick={() => handleRemoveFont(font.id)}>
+                          <Trash size={18} weight="bold" />
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {fontPickerActive && (
+              <div className="font-pick-notice">
+                <p>Waiting for font selection on the page...</p>
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -673,21 +853,28 @@ function App() {
             </div>
 
             <div className="edit-colors-grid">
-              {editingPalette.colors.map((color, index) => (
-                <div key={index} className="edit-color-wrapper">
+              {editingPalette.colors.map((colorItem) => (
+                <div key={colorItem.id} className="edit-color-wrapper">
                   <label 
-                    className="edit-color-block" 
-                    style={{ backgroundColor: color }}
+                    className={`edit-color-block ${colorItem.id === pendingColorPickerId ? 'pending' : ''}`} 
+                    style={{ backgroundColor: colorItem.id === pendingColorPickerId ? 'transparent' : colorItem.value }}
                     title="Click to pick a new color"
                   >
                     <input 
+                      ref={(el) => {
+                        if (el) {
+                          colorInputRefs.current[colorItem.id] = el;
+                        } else {
+                          delete colorInputRefs.current[colorItem.id];
+                        }
+                      }}
                       type="color" 
-                      value={color} 
-                      onChange={(e) => handleEditColorChange(index, e.target.value)}
+                      value={colorItem.value} 
+                      onChange={(e) => handleEditColorChange(colorItem.id, e.target.value)}
                       className="hidden-color-input"
                     />
                   </label>
-                  <button className="remove-color-btn" onClick={() => handleRemoveColor(index)}>
+                  <button className="remove-color-btn" onClick={() => handleRemoveColor(colorItem.id)}>
                     <Trash size={14} weight="bold" />
                   </button>
                 </div>
@@ -703,6 +890,54 @@ function App() {
             <div className="edit-actions">
               <button className="confirm-btn cancel" onClick={() => setEditingPalette(null)}>Cancel</button>
               <button className="confirm-btn delete" onClick={handleSaveEditedPalette}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {fontDetail && (
+        <div className="modal-backdrop" onClick={closeFontDetail}>
+          <div className="eye-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-topbar">
+              <span className="modal-topbar-title">{fontDetail.fontFamily}</span>
+              <div className="header-actions">
+                <span className="eye-icon-btn" onClick={closeFontDetail}>
+                  <X size={20} weight="bold" />
+                </span>
+              </div>
+            </div>
+            <div className="modal-body" style={{ padding: '22px 18px' }}>
+              <div className="font-detail-preview" style={{
+                fontFamily: fontDetail.fontFamily,
+                fontWeight: fontDetail.fontWeight,
+                fontStyle: fontDetail.fontStyle,
+                fontSize: fontDetail.fontSize,
+                color: '#241C15',
+                minHeight: '110px',
+                padding: '16px',
+                background: '#FFFFFF',
+                borderRadius: '12px',
+                border: '1px solid #D1C6B5',
+                marginBottom: '18px'
+              }}>
+                {fontPreviewText}
+              </div>
+              <label className="rename-copy" style={{ marginBottom: '10px' }}>Preview Text</label>
+              <input
+                className="rename-input"
+                value={fontPreviewText}
+                onChange={handleFontPreviewTextChange}
+                maxLength={80}
+              />
+              <div className="font-detail-meta">
+                <span>Size: {fontDetail.fontSize}</span>
+                <span>Weight: {fontDetail.fontWeight}</span>
+                <span>Style: {fontDetail.fontStyle}</span>
+              </div>
+              <div className="edit-actions" style={{ marginTop: '16px' }}>
+                <button className="confirm-btn cancel" onClick={closeFontDetail}>Close</button>
+                <button className="confirm-btn delete" onClick={handleCopyFontCss}>Copy CSS</button>
+              </div>
             </div>
           </div>
         </div>
