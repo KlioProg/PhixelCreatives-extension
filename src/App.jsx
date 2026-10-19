@@ -1,6 +1,11 @@
 /* global chrome */
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback, useEffectEvent } from 'react'
 import './App.css'
+import { MAX_PALETTE_COLORS } from './lib/constants.js';
+import { convertToHex, getTrueColorMath } from './lib/colorMath.js';
+import { capturePalette, isRestrictedUrl } from './lib/capturePalette.js';
+import { createPaletteStore } from './lib/paletteStore.js';
+import { copyText } from './lib/clipboard.js';
 import { PencilSimple, Copy, Hash, PaintBrush, Trash, Eye, DotsThree, X, CaretUp } from "@phosphor-icons/react";
 
 
@@ -19,6 +24,8 @@ const createColorItem = (baseId, value) => ({
 function App() {
   const [activeTab, setActiveTab] = useState('colors');
   const [palettes, setPalettes] = useState([]);
+  const [paletteStore] = useState(() => createPaletteStore(globalThis.chrome?.storage?.local));
+  const captureInProgress = useRef(false);
   const [loading, setLoading] = useState(false);
   const [paletteDetail, setPaletteDetail] = useState(null);
   const [colorIndex, setColorIndex] = useState(0);
@@ -54,8 +61,8 @@ function App() {
 
   const handleAddNewColor = () => {
     if (!editingPalette) return;
-    if (editingPalette.colors.length >= 9) {
-      showToast('Maximum of 9 colors reached!');
+    if (editingPalette.colors.length >= MAX_PALETTE_COLORS) {
+      showToast(`Maximum of ${MAX_PALETTE_COLORS} colors reached!`);
       return;
     }
 
@@ -70,7 +77,7 @@ function App() {
     setPendingColorPickerId(newColorItem.id);
   };
 
-  const showToast = (message) => {
+  const showToast = useCallback((message) => {
     setToastMessage(message);
     setToastVisible(true);
 
@@ -82,7 +89,7 @@ function App() {
       setToastVisible(false);
       setToastMessage('');
     }, 1800);
-  };
+  }, []);
 
   const handleRemoveColor = (colorId) => {
     setEditingPalette(prev => {
@@ -116,32 +123,49 @@ function App() {
     return editPalette?.colors?.map((colorItem) => colorItem.value) ?? [];
   };
 
-  const handleSaveEditedPalette = () => {
+  const savePaletteChange = async (transform) => {
+    try {
+      const saved = await paletteStore.update(transform);
+      setPalettes(saved);
+      return true;
+    } catch (error) {
+      showToast(`Could not save palettes: ${error.message}`);
+      return false;
+    }
+  };
+
+  const copyWithFeedback = async (value, message) => {
+    try {
+      await copyText(value);
+      showToast(message);
+    } catch (error) {
+      showToast(`Could not copy: ${error.message}`);
+    }
+  };
+
+  const handleSaveEditedPalette = async () => {
     if (!editingPalette) return;
-    const savedColors = getEditPaletteColorValues(editingPalette);
-
-    setPalettes(prev => {
-      const updatedDeck = prev.map(palette =>
-        palette.id === editingPalette.id ? { ...editingPalette, colors: savedColors } : palette
-      );
-      
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.local.set({ savedPalettes: updatedDeck });
-      }
-      return updatedDeck;
-    });
-
+    const savedColors = getEditPaletteColorValues(editingPalette).map(convertToHex);
+    if (!savedColors.length || savedColors.some(color => !color)) {
+      showToast('Add at least one valid color before saving.');
+      return;
+    }
+    const savedPalette = { ...editingPalette, colors: savedColors };
+    if (!await savePaletteChange(deck => deck.map(palette =>
+      palette.id === savedPalette.id ? savedPalette : palette
+    ))) return;
     if (paletteDetail?.id === editingPalette.id) {
-      setPaletteDetail(prev => prev ? { ...prev, colors: savedColors } : prev);
+      setPaletteDetail(savedPalette);
+      setColorIndex(index => Math.min(index, savedColors.length - 1));
     }
 
     setEditingPalette(null);
     showToast('Palette updated');
   };
 
-  const addFontFromCapture = (fontData) => {
+  const addFontFromCapture = useEffectEvent((fontData) => {
     const fontItem = {
-      id: Date.now(),
+      id: crypto.randomUUID(),
       fontFamily: fontData.fontFamily,
       fontSize: fontData.fontSize,
       fontWeight: fontData.fontWeight,
@@ -151,7 +175,7 @@ function App() {
     setFonts((prev) => [fontItem, ...prev]);
     setFontPickerActive(false);
     showToast(`Captured font: ${fontItem.fontFamily}`);
-  };
+  });
 
   const handlePickFont = async () => {
     setFontPickerActive(true);
@@ -304,8 +328,7 @@ function App() {
   const handleCopyFontCss = () => {
     if (!fontDetail) return;
     const cssText = `font-family: ${fontDetail.fontFamily}; font-size: ${fontDetail.fontSize}; font-weight: ${fontDetail.fontWeight}; font-style: ${fontDetail.fontStyle};`;
-    navigator.clipboard.writeText(cssText);
-    showToast('Font CSS copied');
+    void copyWithFeedback(cssText, 'Font CSS copied');
   };
 
   const openRenameModal = (targetPalette) => {
@@ -322,7 +345,7 @@ function App() {
     setRenameDraft('');
   };
 
-  const confirmRename = () => {
+  const confirmRename = async () => {
     if (!renameTarget) return;
 
     const nextName = renameDraft.trim();
@@ -331,16 +354,9 @@ function App() {
       return;
     }
 
-    setPalettes(prev => {
-      const updatedDeck = prev.map(palette =>
+    if (!await savePaletteChange(deck => deck.map(palette =>
         palette.id === renameTarget.id ? { ...palette, title: nextName } : palette
-      );
-
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.local.set({ savedPalettes: updatedDeck });
-      }
-      return updatedDeck;
-    });
+    ))) return;
 
     if (paletteDetail && paletteDetail.id === renameTarget.id) {
       setPaletteDetail(prev => ({ ...prev, title: nextName }));
@@ -354,21 +370,14 @@ function App() {
     openRenameModal(targetPalette);
   }
 
-  const handleDuplicate = (targetPalette) => {
+  const handleDuplicate = async (targetPalette) => {
   const newPalette = {
     ...targetPalette,
-    id: Date.now(),
+    id: crypto.randomUUID(),
     title: `${targetPalette.title} (Copy)`
   };
 
-    setPalettes(prev => {
-      const updatedDeck = [newPalette, ...prev];
-      
-      if (typeof chrome !== "undefined" && chrome.storage) {
-        chrome.storage.local.set({ savedPalettes: updatedDeck });
-      }
-      return updatedDeck;
-    });
+    if (!await savePaletteChange(deck => [newPalette, ...deck])) return;
     
     setOpenMenuID(null); 
     showToast('Palette duplicated');
@@ -376,8 +385,7 @@ function App() {
 
   const handleCopyAllHex = (targetPalette) => {
     const allHex = targetPalette.colors.map(color => convertToHex(color)).join(', ');
-    navigator.clipboard.writeText(allHex);
-    showToast('Copied all HEX values');
+    void copyWithFeedback(allHex, 'Copied all HEX values');
     setOpenMenuID(null);
   }
 
@@ -392,9 +400,9 @@ function App() {
     setConfirmDelete(false);
   };
 
-  const confirmDeletePalette = () => {
+  const confirmDeletePalette = async () => {
     if (pendingDeleteId == null) return;
-    deletePalette(pendingDeleteId);
+    if (!await deletePalette(pendingDeleteId)) return;
     setPendingDeleteId(null);
     setConfirmDelete(false);
   };
@@ -419,16 +427,10 @@ function App() {
     );
   };
 
-  const confirmClearSelected = () => {
+  const confirmClearSelected = async () => {
     if (!selectedClearIds.length) return;
 
-    setPalettes((prev) => {
-      const updatedDeck = prev.filter((palette) => !selectedClearIds.includes(palette.id));
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        chrome.storage.local.set({ savedPalettes: updatedDeck });
-      }
-      return updatedDeck;
-    });
+    if (!await savePaletteChange(deck => deck.filter(palette => !selectedClearIds.includes(palette.id)))) return;
 
     if (paletteDetail && selectedClearIds.includes(paletteDetail.id)) {
       setPaletteDetail(null);
@@ -441,11 +443,8 @@ function App() {
     setIsMenuOpen(false);
   };
 
-  const confirmClearAllPalettes = () => {
-    setPalettes([]);
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.set({ savedPalettes: [] });
-    }
+  const confirmClearAllPalettes = async () => {
+    if (!await savePaletteChange(() => [])) return;
     setPaletteDetail(null);
     setOpenMenuID(null);
     setIsMenuOpen(false);
@@ -455,7 +454,7 @@ function App() {
   };
   
   let activeData = null;
-  if (paletteDetail) {
+  if (paletteDetail?.colors.length) {
     const safeColorIndex = Math.min(colorIndex, paletteDetail.colors.length - 1);
     const rawColor = String(paletteDetail.colors[safeColorIndex]).trim().toLowerCase();
     activeData = getTrueColorMath(rawColor);
@@ -474,7 +473,6 @@ function App() {
     };
   }, [openMenuID]); 
   
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!pendingColorPickerId) return;
     const colorInput = colorInputRefs.current[pendingColorPickerId];
@@ -485,14 +483,14 @@ function App() {
   }, [pendingColorPickerId]);
 
   useEffect(() => {
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.get(['savedPalettes'], (result) => {
-        if(result.savedPalettes) {
-          setPalettes(result.savedPalettes);
-        }
-      });
-    }
-  }, []);
+    let active = true;
+    paletteStore.load().then(saved => {
+      if (active) setPalettes(saved);
+    }).catch(error => {
+      if (active) showToast(`Could not load palettes: ${error.message}`);
+    });
+    return () => { active = false; };
+  }, [paletteStore, showToast]);
 
   useEffect(() => {
     const consumeStoredCapture = () => {
@@ -533,68 +531,40 @@ function App() {
     };
   }, []);
 
-  const processColorResponse = (response, tabTitle) => {
-    // @CodeScene(disable:"Complex Conditional")
-    if (response && response.colors && response.colors.length > 0) {
-      const cleanTitle = tabTitle.replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Untitled'; 
-      const newPalette = {
-        id: Date.now(),
-        title: cleanTitle,
-        colors: response.colors.slice(0, 8) // Limit to 9 colors
-      };
-
-      setPalettes(prev => {
-        const newDeck = [newPalette, ...prev];
-        chrome.storage.local.set({ savedPalettes: newDeck });
-        return newDeck;
-      })
-   
-      setActiveTab('colors');
-      showToast('Palette saved');
-    } else {
-      showToast('No colors found on the current page');
-    }
-    setLoading(false);
-  }
-
-  const deletePalette = (id) => {
-    setPalettes(prev => {
-      const updatedDeck = prev.filter(palette => palette.id !== id);
-      chrome.storage.local.set({ savedPalettes: updatedDeck });
-      return updatedDeck;
-    });
+  const deletePalette = async (id) => {
+    if (!await savePaletteChange(deck => deck.filter(palette => palette.id !== id))) return false;
     if (paletteDetail?.id === id) {
       setPaletteDetail(null);
     }
     showToast('Palette deleted');
+    return true;
   }
 
   const handleExtractColors = async () => {
+    if (captureInProgress.current) return;
+    captureInProgress.current = true;
     setLoading(true);
-
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-
-    if(!tab) {
-      showToast("No active tab found. Please open a webpage and try again.");
-      setLoading(false);
-      return;
-    }
-
-    if (isRestrictedUrl(tab.url)) {
-      showToast("This extension cannot access the current page due to browser security restrictions. Please navigate to a different webpage and try again.");
-      setLoading(false);
-      return;
-    }
-
-    chrome.tabs.sendMessage(tab.id, { action: "extractColors" }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Error", chrome.runtime.lastError.message);
-        showToast("Failed to communicate with content script.");
-        setLoading(false);
+    try {
+      if (!globalThis.chrome?.tabs) throw new Error('Open Phixel from the Chrome extension toolbar.');
+      const { title, colors } = await capturePalette(chrome.tabs);
+      if (!colors.length) {
+        showToast('No colors found in the visible page.');
         return;
       }
-      processColorResponse(response, tab.title);
-    });
+      const newPalette = {
+        id: crypto.randomUUID(),
+        title: title.replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Untitled',
+        colors,
+      };
+      if (!await savePaletteChange(deck => [newPalette, ...deck])) return;
+      setActiveTab('colors');
+      showToast('Palette saved');
+    } catch (error) {
+      showToast(`Could not capture colors: ${error.message}`);
+    } finally {
+      captureInProgress.current = false;
+      setLoading(false);
+    }
   }
 
   return (
@@ -656,8 +626,7 @@ function App() {
                             style={{ backgroundColor: color }}
                             title={`Click to copy: ${hexColor}`}
                             onClick={() => {
-                              navigator.clipboard.writeText(hexColor);
-                              showToast(`Copied ${hexColor}`);
+                              void copyWithFeedback(hexColor, `Copied ${hexColor}`);
                             }}
                           >
                             <span className="slice-hex-label" style={{ color: isLight ? '#121212' : '#ffffff' }}>{hexColor}</span>
@@ -801,49 +770,43 @@ function App() {
                     >
                     {activeData ? (
                         <div className="modal-data-list">
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.hex); showToast(`Copied HEX: ${activeData.hex}`); }}>
+                          <div className="data-row" onClick={() => { void copyWithFeedback(activeData.hex, `Copied HEX: ${activeData.hex}`); }}>
                             <span className="data-label">HEX</span>
                             <span className="data-value">{activeData.hex}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.hsb); showToast(`Copied HSB: ${activeData.hsb}`); }}>
+                          <div className="data-row" onClick={() => { void copyWithFeedback(activeData.hsb, `Copied HSB: ${activeData.hsb}`); }}>
                             <span className="data-label">HSB</span>
                             <span className="data-value">{activeData.hsb}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.hsl); showToast(`Copied HSL: ${activeData.hsl}`); }}>
+                          <div className="data-row" onClick={() => { void copyWithFeedback(activeData.hsl, `Copied HSL: ${activeData.hsl}`); }}>
                             <span className="data-label">HSL</span>
                             <span className="data-value">{activeData.hsl}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.rgb); showToast(`Copied RGB: ${activeData.rgb}`); }}>
+                          <div className="data-row" onClick={() => { void copyWithFeedback(activeData.rgb, `Copied RGB: ${activeData.rgb}`); }}>
                             <span className="data-label">RGB</span>
                             <span className="data-value">{activeData.rgb}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.cmyk); showToast(`Copied CMYK: ${activeData.cmyk}`); }}>
+                          <div className="data-row" onClick={() => { void copyWithFeedback(activeData.cmyk, `Copied CMYK: ${activeData.cmyk}`); }}>
                             <span className="data-label">CMYK</span>
                             <span className="data-value">{activeData.cmyk}</span>
                           </div>
 
-                          <div className="data-row" onClick={() => { navigator.clipboard.writeText(activeData.oklab); showToast(`Copied OKLAB: ${activeData.oklab}`); }}>
+                          <div className="data-row" onClick={() => { void copyWithFeedback(activeData.oklab, `Copied OKLAB: ${activeData.oklab}`); }}>
                             <span className="data-label">OKLAB</span>
                             <span className="data-value">{activeData.oklab}</span>
                           </div>
                         </div>
                       ) : (
-                        <p className="loading-text">Crunching color data...</p>
+                        <p className="loading-text">This palette has no colors.</p>
                       )}
                     </div>
                   <div className="modal-bottom-ribbon">
                     {paletteDetail.colors.map((color, index) => {
-                      const canvas = document.createElement("canvas");
-                      canvas.width = 1; canvas.height = 1;
-                      const ctx = canvas.getContext("2d", { willReadFrequently: true });
-                      ctx.fillStyle = color;
-                      ctx.fillRect(0, 0, 1, 1);
-                      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-                      const isLight = (r * 0.299 + g * 0.587 + b * 0.114) > 150;
+                      const isLight = isLightColor(color);
 
                       return (
                         <div
@@ -971,7 +934,7 @@ function App() {
                 </div>
               ))}
 
-              {editingPalette.colors.length < 9 && (
+              {editingPalette.colors.length < MAX_PALETTE_COLORS && (
                 <div className="add-color-wrapper" onClick={handleAddNewColor}>
                   <span className="add-plus">+</span>
                 </div>
@@ -1118,117 +1081,6 @@ function App() {
 
     </div>
   );
-}
-
-const convertToHex = (colorString) => {
-    if (colorString.startsWith('#')) return colorString;
-
-    const rgbValues = colorString.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
-    
-    if (!rgbValues) return colorString; 
-
-    const r = parseInt(rgbValues[1], 10).toString(16).padStart(2, '0');
-    const g = parseInt(rgbValues[2], 10).toString(16).padStart(2, '0');
-    const b = parseInt(rgbValues[3], 10).toString(16).padStart(2, '0');
-
-    // If there is an alpha channel (opacity), convert that to Hex too!
-    if (rgbValues[4]) {
-      const a = Math.round(parseFloat(rgbValues[4]) * 255).toString(16).padStart(2, '0');
-      return `#${r}${g}${b}${a}`.toUpperCase();
-    }
-
-    return `#${r}${g}${b}`.toUpperCase();
-};
-
-function isRestrictedUrl(url) {
-   if (!url) return true; // If no URL, treat as restricted
-   return url.startsWith("chrome://") || 
-          url.startsWith("edge://") || 
-          url.startsWith("about:") || 
-          url.startsWith("file://");
-}
-
-function rgbToCmyk(r, g, b) {
-  if (r === 0 && g === 0 && b === 0) {
-    return { c: 0, m: 0, y: 0, k: 100 };
-  }
-  
-  let c = 1 - (r / 255);
-  let m = 1 - (g / 255);
-  let y = 1 - (b / 255);
-  let k = Math.min(c, m, y);
-  
-  c = Math.round(((c - k) / (1 - k)) * 100) || 0;
-  m = Math.round(((m - k) / (1 - k)) * 100) || 0;
-  y = Math.round(((y - k) / (1 - k)) * 100) || 0;
-  k = Math.round(k * 100) || 0;
-  
-  return { c, m, y, k };
-}
-
-function rgbToHslHsb(r, g, b) {
-  r /= 255; g /= 255; b /= 255;
-  const max = Math.max(r, g, b), min = Math.min(r, g, b);
-  const d = max - min;
-  let h = 0, sL = 0, l = (max + min) / 2, sB = 0, v = max;
-
-  if (d !== 0) {
-    sL = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    sB = max === 0 ? 0 : d / max;
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
-    }
-    h /= 6;
-  }
-  return {
-    h: Math.round(h * 360),
-    sL: Math.round(sL * 100), l: Math.round(l * 100),
-    sB: Math.round(sB * 100), b: Math.round(v * 100)
-  };
-}
-
-function rgbToOklab(r, g, b) {
-  let l = 0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b;
-  let m = 0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b;
-  let s = 0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b;
-  
-  l = Math.cbrt(l / 255); m = Math.cbrt(m / 255); s = Math.cbrt(s / 255);
-  
-  return {
-    L: (0.2104542553 * l + 0.7936177850 * m - 0.0040720468 * s).toFixed(3),
-    a: (1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s).toFixed(3),
-    b: (0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s).toFixed(3)
-  };
-}
-
-function getTrueColorMath(colorString) {
-  const canvas = document.createElement("canvas");
-  canvas.width = 1; canvas.height = 1;
-  const ctx = canvas.getContext("2d", { willReadFrequently: true });
-
-  ctx.fillStyle = colorString;
-  ctx.fillRect(0, 0, 1, 1);
-
-  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
-  const hex = `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase()}`;
-  
-  const hslHsb = rgbToHslHsb(r, g, b);
-  const cmyk = rgbToCmyk(r, g, b);
-  const oklab = rgbToOklab(r, g, b);
-
-  const isLight = (r * 0.299 + g * 0.587 + b * 0.114) > 150; 
-
-  return { 
-    hex, 
-    rgb: `${r}, ${g}, ${b}`,
-    hsl: `${hslHsb.h}, ${hslHsb.sL}, ${hslHsb.l}`,
-    hsb: `${hslHsb.h}, ${hslHsb.sB}, ${hslHsb.b}`,
-    cmyk: `${cmyk.c}, ${cmyk.m}, ${cmyk.y}, ${cmyk.k}`,
-    oklab: `${oklab.L}, ${oklab.a}, ${oklab.b}`,
-    isLight 
-  };
 }
 
 export default App;

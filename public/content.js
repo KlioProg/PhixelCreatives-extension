@@ -1,73 +1,5 @@
 /* global chrome */
 
-const MAX_PALETTE_COLORS = 9;
-
-const parseCssColor = (cssColor) => {
-  if (!cssColor || cssColor === 'transparent') return null;
-
-  const rgbaMatch = cssColor.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/);
-  if (rgbaMatch) {
-    return {
-      r: Number(rgbaMatch[1]),
-      g: Number(rgbaMatch[2]),
-      b: Number(rgbaMatch[3]),
-      a: rgbaMatch[4] !== undefined ? Number(rgbaMatch[4]) : 1
-    };
-  }
-
-  const hexMatch = cssColor.match(/^#([A-Fa-f0-9]{3,4}|[A-Fa-f0-9]{6}|[A-Fa-f0-9]{8})$/);
-  if (hexMatch) {
-    let hex = hexMatch[1];
-    if (hex.length === 3 || hex.length === 4) {
-      hex = hex.split('').map((ch) => ch + ch).join('');
-    }
-    const hasAlpha = hex.length === 8;
-    return {
-      r: parseInt(hex.slice(0, 2), 16),
-      g: parseInt(hex.slice(2, 4), 16),
-      b: parseInt(hex.slice(4, 6), 16),
-      a: hasAlpha ? parseInt(hex.slice(6, 8), 16) / 255 : 1
-    };
-  }
-
-  return null;
-};
-
-const rgbToHex = ({ r, g, b }) => {
-  const component = (value) => value.toString(16).padStart(2, '0').toUpperCase();
-  return `#${component(r)}${component(g)}${component(b)}`;
-};
-
-const srgbToLinear = (value) => {
-  const v = value / 255;
-  return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-};
-
-const rgbToLab = ({ r, g, b }) => {
-  const linear = [r, g, b].map(srgbToLinear);
-  const x = (linear[0] * 0.4124564 + linear[1] * 0.3575761 + linear[2] * 0.1804375) / 0.95047;
-  const y = (linear[0] * 0.2126729 + linear[1] * 0.7151522 + linear[2] * 0.0721750) / 1.0;
-  const z = (linear[0] * 0.0193339 + linear[1] * 0.1191920 + linear[2] * 0.9503041) / 1.08883;
-
-  const f = (v) => (v > 0.008856 ? Math.cbrt(v) : (7.787 * v) + 16 / 116);
-  const fx = f(x);
-  const fy = f(y);
-  const fz = f(z);
-
-  return {
-    L: 116 * fy - 16,
-    a: 500 * (fx - fy),
-    b: 200 * (fy - fz)
-  };
-};
-
-const colorDistance = (labA, labB) => {
-  const dL = labA.L - labB.L;
-  const da = labA.a - labB.a;
-  const db = labA.b - labB.b;
-  return Math.sqrt(dL * dL + da * da + db * db);
-};
-
 const isVisibleElement = (element) => {
   const style = window.getComputedStyle(element);
   if (!style || style.display === 'none' || style.visibility === 'hidden' || parseFloat(style.opacity) === 0) {
@@ -76,45 +8,6 @@ const isVisibleElement = (element) => {
 
   const rect = element.getBoundingClientRect();
   return rect.width > 0 && rect.height > 0;
-};
-
-const buildPalette = (entries, maxColors) => {
-  if (!entries.length) return [];
-
-  const palette = [...entries];
-
-  while (palette.length > maxColors) {
-    let bestPair = [0, 1];
-    let smallestDistance = Infinity;
-
-    for (let i = 0; i < palette.length; i += 1) {
-      for (let j = i + 1; j < palette.length; j += 1) {
-        const distance = colorDistance(palette[i].lab, palette[j].lab);
-        if (distance < smallestDistance) {
-          smallestDistance = distance;
-          bestPair = [i, j];
-        }
-      }
-    }
-
-    const [i, j] = bestPair;
-    const mergedCount = palette[i].count + palette[j].count;
-    const mergedRgb = {
-      r: Math.round((palette[i].rgb.r * palette[i].count + palette[j].rgb.r * palette[j].count) / mergedCount),
-      g: Math.round((palette[i].rgb.g * palette[i].count + palette[j].rgb.g * palette[j].count) / mergedCount),
-      b: Math.round((palette[i].rgb.b * palette[i].count + palette[j].rgb.b * palette[j].count) / mergedCount)
-    };
-
-    palette.splice(j, 1);
-    palette.splice(i, 1, {
-      rgb: mergedRgb,
-      hex: rgbToHex(mergedRgb),
-      count: mergedCount,
-      lab: rgbToLab(mergedRgb)
-    });
-  }
-
-  return palette.sort((a, b) => b.count - a.count).map((entry) => entry.hex);
 };
 
 const findClosestTextElement = (startElement) => {
@@ -212,41 +105,6 @@ const updateFontPickerHighlight = (target) => {
 };
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'extractColors') {
-    const colorMap = new Map();
-    const allElements = Array.from(document.querySelectorAll('*'));
-
-    allElements.forEach((element) => {
-      if (!isVisibleElement(element)) return;
-
-      const styles = window.getComputedStyle(element);
-      const candidateColors = [styles.backgroundColor, styles.color];
-
-      candidateColors.forEach((candidate) => {
-        const parsed = parseCssColor(candidate);
-        if (!parsed || parsed.a === 0) return;
-
-        const hex = rgbToHex(parsed);
-        if (!hex) return;
-
-        if (colorMap.has(hex)) {
-          colorMap.get(hex).count += 1;
-        } else {
-          colorMap.set(hex, {
-            rgb: { r: parsed.r, g: parsed.g, b: parsed.b },
-            hex,
-            count: 1,
-            lab: rgbToLab(parsed)
-          });
-        }
-      });
-    });
-
-    const palette = buildPalette(Array.from(colorMap.values()), MAX_PALETTE_COLORS);
-    sendResponse({ colors: palette });
-    return true;
-  }
-
   if (request.action === 'extractFonts') {
     const fontMap = new Map();
     const allTextElements = Array.from(document.querySelectorAll('body *'));
